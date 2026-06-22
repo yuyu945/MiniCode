@@ -1,0 +1,142 @@
+[
+  {
+    "query_id": "codec_q01",
+    "query": "where is the runtime entrypoint class",
+    "ground_truth_file": "runtime/runtime.ts",
+    "ground_truth_symbol": "AgentRuntime",
+    "related_files": ["runtime/session-controller.ts", "runtime/context.ts"],
+    "expected_targets": [
+      {
+        "path": "runtime/runtime.ts",
+        "symbol_name": "AgentRuntime",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "codec_q02",
+    "query": "find the session controller",
+    "ground_truth_file": "runtime/session-controller.ts",
+    "ground_truth_symbol": "SessionController",
+    "related_files": ["runtime/session-state.ts"],
+    "expected_targets": [
+      {
+        "path": "runtime/session-controller.ts",
+        "symbol_name": "SessionController",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "codec_q03",
+    "query": "where are permission decisions handled",
+    "ground_truth_file": "tools/permissions.ts",
+    "ground_truth_symbol": "PermissionManager",
+    "related_files": ["tools/tools.ts"],
+    "expected_targets": [
+      {
+        "path": "tools/permissions.ts",
+        "symbol_name": "PermissionManager",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "codec_q04",
+    "query": "find the tool registry",
+    "ground_truth_file": "tools/tools.ts",
+    "ground_truth_symbol": "ToolRegistry",
+    "related_files": ["tools/tools.ts"],
+    "expected_targets": [
+      {
+        "path": "tools/tools.ts",
+        "symbol_name": "ToolRegistry",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "codec_q05",
+    "query": "where is the local memory manager",
+    "ground_truth_file": "memory/memory.ts",
+    "ground_truth_symbol": "LocalMemoryManager",
+    "related_files": ["memory/memory.ts"],
+    "expected_targets": [
+      {
+        "path": "memory/memory.ts",
+        "symbol_name": "LocalMemoryManager",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "codec_q06",
+    "query": "find the OpenAI responses adapter",
+    "ground_truth_file": "models/models.ts",
+    "ground_truth_symbol": "OpenAIResponsesAdapter",
+    "related_files": ["models/models.ts"],
+    "expected_targets": [
+      {
+        "path": "models/models.ts",
+        "symbol_name": "OpenAIResponsesAdapter",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "codec_q07",
+    "query": "where is the context builder",
+    "ground_truth_file": "runtime/context.ts",
+    "ground_truth_symbol": "ContextBuilder",
+    "related_files": ["runtime/runtime.ts"],
+    "expected_targets": [
+      {
+        "path": "runtime/context.ts",
+        "symbol_name": "ContextBuilder",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "codec_q08",
+    "query": "find event store implementation",
+    "ground_truth_file": "observability/events.ts",
+    "ground_truth_symbol": "JsonlEventStore",
+    "related_files": ["observability/replay.ts"],
+    "expected_targets": [
+      {
+        "path": "observability/events.ts",
+        "symbol_name": "JsonlEventStore",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "codec_q09",
+    "query": "where is the replay class",
+    "ground_truth_file": "observability/replay.ts",
+    "ground_truth_symbol": "Replay",
+    "related_files": ["observability/events.ts"],
+    "expected_targets": [
+      {
+        "path": "observability/replay.ts",
+        "symbol_name": "Replay",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "codec_q10",
+    "query": "find workspace registry implementation",
+    "ground_truth_file": "runtime/workspace-registry.ts",
+    "ground_truth_symbol": "FileWorkspaceRegistry",
+    "related_files": ["runtime/workspace.ts"],
+    "expected_targets": [
+      {
+        "path": "runtime/workspace-registry.ts",
+        "symbol_name": "FileWorkspaceRegistry",
+        "symbol_kind": "class"
+      }
+    ]
+  }
+]

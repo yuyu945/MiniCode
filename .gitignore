@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+
+# MiniCode specific
+.mini-code/
+minicode_session/
+
+# Local agent/runtime state
+.mini-code-memory/
+.mini-code-memory-local/
+.mini-code-session-memory/
+.claude/
+.qwen/
+.trae/
+.workbuddy/
+.mcp.json
+AGENTS.md
+
+# Local mirrors, forks, and vendored references
+MiniCode-fork/
+claude-code-src/
+superpowers-zh/
+py-src/
+ts-src/
+docs/
+README.zh-CN.md
+
+# Benchmark outputs
+benchmarks/*_results.json
+benchmarks/*_results.txt
+
+# Local environment files
+.env
+py-src/.env

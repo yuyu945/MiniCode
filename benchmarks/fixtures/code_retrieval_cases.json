@@ -1,0 +1,252 @@
+[
+  {
+    "query_id": "q01",
+    "query": "where is the main context compaction orchestrator",
+    "ground_truth_file": "context_compactor.py",
+    "ground_truth_symbol": "ContextCompactor",
+    "related_files": ["context_manager.py", "context_cybernetics.py"],
+    "expected_targets": [
+      {
+        "path": "context_compactor.py",
+        "symbol_name": "ContextCompactor",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "q02",
+    "query": "find the session loader implementation",
+    "ground_truth_file": "session.py",
+    "ground_truth_symbol": "load_session",
+    "related_files": ["tty_app.py", "tui/session_flow.py"],
+    "expected_targets": [
+      {
+        "path": "session.py",
+        "symbol_name": "load_session",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "q03",
+    "query": "where is the default tool registry created",
+    "ground_truth_file": "tools/__init__.py",
+    "ground_truth_symbol": "create_default_tool_registry",
+    "related_files": ["tooling.py", "agent_loop.py"],
+    "expected_targets": [
+      {
+        "path": "tools/__init__.py",
+        "symbol_name": "create_default_tool_registry",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "q04",
+    "query": "find the unified memory pipeline facade",
+    "ground_truth_file": "memory_pipeline.py",
+    "ground_truth_symbol": "MemoryPipeline",
+    "related_files": ["memory.py", "memory_injector.py"],
+    "expected_targets": [
+      {
+        "path": "memory_pipeline.py",
+        "symbol_name": "MemoryPipeline",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "q05",
+    "query": "where is memory search implemented",
+    "ground_truth_file": "memory.py",
+    "ground_truth_symbol": "search",
+    "related_files": ["memory_pipeline.py", "vector_memory.py"],
+    "expected_targets": [
+      {
+        "path": "memory.py",
+        "symbol_name": "search",
+        "symbol_kind": "method"
+      }
+    ]
+  },
+  {
+    "query_id": "q06",
+    "query": "where is OpenAI adapter defined",
+    "ground_truth_file": "openai_adapter.py",
+    "ground_truth_symbol": "OpenAIModelAdapter",
+    "related_files": ["model_registry.py", "types.py"],
+    "expected_targets": [
+      {
+        "path": "openai_adapter.py"
+      }
+    ]
+  },
+  {
+    "query_id": "q07",
+    "query": "run_tty_app function",
+    "ground_truth_file": "tty_app.py",
+    "ground_truth_symbol": "run_tty_app",
+    "related_files": ["main.py", "tui/input_handler.py"],
+    "expected_targets": [
+      {
+        "path": "tty_app.py",
+        "symbol_name": "run_tty_app",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "q08",
+    "query": "ContextCompactor class",
+    "ground_truth_file": "context_compactor.py",
+    "ground_truth_symbol": "ContextCompactor",
+    "related_files": ["context_cybernetics.py", "context_manager.py"],
+    "expected_targets": [
+      {
+        "path": "context_compactor.py",
+        "symbol_name": "ContextCompactor",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "q09",
+    "query": "where does the agent run a full turn",
+    "ground_truth_file": "agent_loop.py",
+    "ground_truth_symbol": "run_agent_turn",
+    "related_files": ["headless.py", "gateway.py"],
+    "expected_targets": [
+      {
+        "path": "agent_loop.py",
+        "symbol_name": "run_agent_turn",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "q10",
+    "query": "which class owns permission decisions",
+    "ground_truth_file": "permissions.py",
+    "ground_truth_symbol": "PermissionManager",
+    "related_files": ["tty_app.py", "auto_mode.py"],
+    "expected_targets": [
+      {
+        "path": "permissions.py",
+        "symbol_name": "PermissionManager",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "q11",
+    "query": "find the anthropic model adapter class",
+    "ground_truth_file": "anthropic_adapter.py",
+    "ground_truth_symbol": "AnthropicModelAdapter",
+    "related_files": ["openai_adapter.py", "types.py"],
+    "expected_targets": [
+      {
+        "path": "anthropic_adapter.py",
+        "symbol_name": "AnthropicModelAdapter",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "q12",
+    "query": "where is runtime config loaded",
+    "ground_truth_file": "config.py",
+    "ground_truth_symbol": "load_runtime_config",
+    "related_files": ["main.py", "prompt.py"],
+    "expected_targets": [
+      {
+        "path": "config.py",
+        "symbol_name": "load_runtime_config",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "q13",
+    "query": "find the reflection engine",
+    "ground_truth_file": "agent_reflection.py",
+    "ground_truth_symbol": "ReflectionEngine",
+    "related_files": ["memory_pipeline.py", "agent_loop.py"],
+    "expected_targets": [
+      {
+        "path": "agent_reflection.py",
+        "symbol_name": "ReflectionEngine",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "q14",
+    "query": "where are background shell tasks registered",
+    "ground_truth_file": "background_tasks.py",
+    "ground_truth_symbol": "register_background_shell_task",
+    "related_files": ["tty_app.py", "tools/run_command.py"],
+    "expected_targets": [
+      {
+        "path": "background_tasks.py",
+        "symbol_name": "register_background_shell_task",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "q15",
+    "query": "which class controls tool scheduling",
+    "ground_truth_file": "agent_intelligence.py",
+    "ground_truth_symbol": "ToolScheduler",
+    "related_files": ["agent_loop.py", "agent_metrics.py"],
+    "expected_targets": [
+      {
+        "path": "agent_intelligence.py",
+        "symbol_name": "ToolScheduler",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "q16",
+    "query": "where is auto mode permission setter",
+    "ground_truth_file": "auto_mode.py",
+    "ground_truth_symbol": "set_permission_mode",
+    "related_files": ["permissions.py", "tty_app.py"],
+    "expected_targets": [
+      {
+        "path": "auto_mode.py",
+        "symbol_name": "set_permission_mode",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "q17",
+    "query": "find the cost control loop",
+    "ground_truth_file": "cost_control.py",
+    "ground_truth_symbol": "CostControlLoop",
+    "related_files": ["cost_tracker.py", "cybernetic_orchestrator.py"],
+    "expected_targets": [
+      {
+        "path": "cost_control.py",
+        "symbol_name": "CostControlLoop",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "q18",
+    "query": "where is team registry access implemented",
+    "ground_truth_file": "agent_protocol.py",
+    "ground_truth_symbol": "get_team_registry",
+    "related_files": ["agent_protocol.py", "agent_loop.py"],
+    "expected_targets": [
+      {
+        "path": "agent_protocol.py",
+        "symbol_name": "get_team_registry",
+        "symbol_kind": "function"
+      }
+    ]
+  }
+]

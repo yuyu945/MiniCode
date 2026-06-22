@@ -1,0 +1,142 @@
+[
+  {
+    "query_id": "ccrev_q01",
+    "query": "find assistant mode checker",
+    "ground_truth_file": "assistant/index.ts",
+    "ground_truth_symbol": "isAssistantMode",
+    "related_files": ["assistant/index.ts"],
+    "expected_targets": [
+      {
+        "path": "assistant/index.ts",
+        "symbol_name": "isAssistantMode",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "ccrev_q02",
+    "query": "where is session id generated",
+    "ground_truth_file": "bootstrap/state.ts",
+    "ground_truth_symbol": "regenerateSessionId",
+    "related_files": ["bootstrap/state.ts"],
+    "expected_targets": [
+      {
+        "path": "bootstrap/state.ts",
+        "symbol_name": "regenerateSessionId",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "ccrev_q03",
+    "query": "find project root getter",
+    "ground_truth_file": "bootstrap/state.ts",
+    "ground_truth_symbol": "getProjectRoot",
+    "related_files": ["bootstrap/state.ts"],
+    "expected_targets": [
+      {
+        "path": "bootstrap/state.ts",
+        "symbol_name": "getProjectRoot",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "ccrev_q04",
+    "query": "where is total api duration tracked",
+    "ground_truth_file": "bootstrap/state.ts",
+    "ground_truth_symbol": "getTotalAPIDuration",
+    "related_files": ["bootstrap/state.ts"],
+    "expected_targets": [
+      {
+        "path": "bootstrap/state.ts",
+        "symbol_name": "getTotalAPIDuration",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "ccrev_q05",
+    "query": "find turn tool duration reset",
+    "ground_truth_file": "bootstrap/state.ts",
+    "ground_truth_symbol": "resetTurnToolDuration",
+    "related_files": ["bootstrap/state.ts"],
+    "expected_targets": [
+      {
+        "path": "bootstrap/state.ts",
+        "symbol_name": "resetTurnToolDuration",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "ccrev_q06",
+    "query": "where is model strings state managed",
+    "ground_truth_file": "bootstrap/state.ts",
+    "ground_truth_symbol": "setModelStrings",
+    "related_files": ["bootstrap/state.ts"],
+    "expected_targets": [
+      {
+        "path": "bootstrap/state.ts",
+        "symbol_name": "setModelStrings",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "ccrev_q07",
+    "query": "find logger provider setter",
+    "ground_truth_file": "bootstrap/state.ts",
+    "ground_truth_symbol": "setLoggerProvider",
+    "related_files": ["bootstrap/state.ts"],
+    "expected_targets": [
+      {
+        "path": "bootstrap/state.ts",
+        "symbol_name": "setLoggerProvider",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "ccrev_q08",
+    "query": "where is cached claude md content read",
+    "ground_truth_file": "bootstrap/state.ts",
+    "ground_truth_symbol": "getCachedClaudeMdContent",
+    "related_files": ["bootstrap/state.ts"],
+    "expected_targets": [
+      {
+        "path": "bootstrap/state.ts",
+        "symbol_name": "getCachedClaudeMdContent",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "ccrev_q09",
+    "query": "find strict tool result pairing flag",
+    "ground_truth_file": "bootstrap/state.ts",
+    "ground_truth_symbol": "getStrictToolResultPairing",
+    "related_files": ["bootstrap/state.ts"],
+    "expected_targets": [
+      {
+        "path": "bootstrap/state.ts",
+        "symbol_name": "getStrictToolResultPairing",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "ccrev_q10",
+    "query": "where is inline plugin state stored",
+    "ground_truth_file": "bootstrap/state.ts",
+    "ground_truth_symbol": "getInlinePlugins",
+    "related_files": ["bootstrap/state.ts"],
+    "expected_targets": [
+      {
+        "path": "bootstrap/state.ts",
+        "symbol_name": "getInlinePlugins",
+        "symbol_kind": "function"
+      }
+    ]
+  }
+]
