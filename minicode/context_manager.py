@@ -733,7 +733,7 @@ class ContextManager:
         if tool_name in _SEARCH_TOOLS:
             pattern = inp.get("pattern") or inp.get("query", "")
             # Count matches from result
-            match_lines = [l for l in result_content.split("\n") if l.strip() and not l.startswith("#")]
+            match_lines = [line for line in result_content.split("\n") if line.strip() and not line.startswith("#")]
             return f"[Searched '{pattern[:50]}': {len(match_lines)} results]"
         
         if tool_name in _COMMAND_TOOLS:

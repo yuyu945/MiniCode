@@ -390,6 +390,7 @@ def format_config_diagnostic(cwd: str | Path | None = None) -> str:
     is_valid, messages = validate_config(cwd)
     
     lines = ["Configuration Diagnostics", "=" * 40, ""]
+    fallback_tool_profile = os.environ.get("MINI_CODE_TOOL_PROFILE", "core")
     
     if is_valid:
         lines.append("Status: OK")
@@ -456,6 +457,11 @@ def format_config_diagnostic(cwd: str | Path | None = None) -> str:
         if config.get('responseVerbosity'):
             lines.append(f"  Response Verbosity: {config.get('responseVerbosity')}")
     except Exception:
-        pass
+        lines.append("")
+        lines.append("Current Configuration")
+        lines.append("-" * 40)
+        lines.append("  Model: not set")
+        lines.append("  Provider: unknown")
+        lines.append(f"  Tool Profile: {fallback_tool_profile}")
     
     return "\n".join(lines)

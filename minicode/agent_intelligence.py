@@ -1,6 +1,9 @@
 from enum import Enum
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from minicode.agent_metrics import AgentMetricsCollector
 
 
 class ErrorCategory(Enum):

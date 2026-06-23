@@ -47,7 +47,10 @@ import math
 import time
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .feedback_controller import SystemState
 
 from .context_compactor import (
     CompactStrategy,

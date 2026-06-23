@@ -30,27 +30,22 @@ from minicode.decision_audit import get_auditor, DecisionOutcome
 
 # 工程控制论集成
 from minicode.cybernetic_orchestrator import CyberneticOrchestrator
-from minicode.cybernetic_supervisor import CyberneticSupervisor, save_supervisor_report
+from minicode.cybernetic_supervisor import save_supervisor_report
 from minicode.feedforward_controller import FeedforwardController
 
 # 高级控制论模块
-from minicode.adaptive_pid_tuner import AdaptivePIDTuner
-from minicode.state_observer import StateObserver, MeasurementVector
-from minicode.decoupling_controller import DecouplingController
-from minicode.predictive_controller import PredictiveController
+from minicode.state_observer import MeasurementVector
 from minicode.self_healing_engine import SelfHealingEngine
 
 # 任务进度控制
-from minicode.progress_controller import ProgressController, ProgressSignal, ProgressAction
+from minicode.progress_controller import ProgressSignal, ProgressAction
 
 # 记忆注入和模型选择控制
-from minicode.memory_injector import MemoryInjectionController, MemoryInjectionSignal, MemoryInjector
-from minicode.model_registry import ModelSelectionController, ModelSelectionSignal
+from minicode.memory_injector import MemoryInjectionSignal, MemoryInjector
+from minicode.model_registry import ModelSelectionSignal
 
 # 智能路由与自省 (Phase 3 导入)
-from minicode.smart_router import SmartRouter, TaskOutcome
-from minicode.agent_reflection import ReflectionEngine
-from minicode.model_switcher import ModelSwitcher
+from minicode.smart_router import TaskOutcome
 
 # 上下文管理集成 (Claude Code-style + Engineering Cybernetics)
 from minicode.context_compactor import (

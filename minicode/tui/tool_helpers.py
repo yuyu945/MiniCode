@@ -29,7 +29,7 @@ def _summarize_collapsed_tool_body(output: str) -> str:
         deletions = output.count("\n-") - output.count("\n---")
         if additions > 0 or deletions > 0:
             return f"+{additions} -{deletions}"
-    line = next((l.strip() for l in output.split("\n") if l.strip()), "output collapsed")
+    line = next((part.strip() for part in output.split("\n") if part.strip()), "output collapsed")
     return line[:140] + "..." if len(line) > 140 else line
 
 
