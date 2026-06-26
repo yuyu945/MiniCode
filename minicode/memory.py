@@ -19,6 +19,7 @@ import logging
 import math
 import os
 import re
+import threading
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -715,13 +716,53 @@ class MemoryFile:
     _idf_cache: dict[str, float] | None = field(default=None, repr=False)
     _avgdl_cache: float | None = field(default=None, repr=False)
     _cache_dirty: bool = field(default=True, repr=False)
+    _lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
 
     def _rebuild_indices(self) -> None:
-        self._id_index.clear()
-        self._tag_index.clear()
-        self._category_index.clear()
-        self._tokens_cache.clear()
-        for entry in self.entries:
+        with self._lock:
+            self._id_index.clear()
+            self._tag_index.clear()
+            self._category_index.clear()
+            self._tokens_cache.clear()
+            for entry in self.entries:
+                self._id_index[entry.id] = entry
+                for tag in entry.tags:
+                    if tag not in self._tag_index:
+                        self._tag_index[tag] = set()
+                    self._tag_index[tag].add(entry)
+                cat = entry.category
+                if cat not in self._category_index:
+                    self._category_index[cat] = []
+                self._category_index[cat].append(entry)
+                self._tokens_cache[entry.id] = entry.get_tokens()
+            # Precompute IDF and avgdl
+            if self._tokens_cache:
+                all_tokens = list(self._tokens_cache.values())
+                self._idf_cache = _compute_idf(all_tokens)
+                self._avgdl_cache = _compute_avgdl(all_tokens)
+            self._cache_dirty = False
+
+    def _ensure_cache_valid(self) -> None:
+        with self._lock:
+            if self._cache_dirty:
+                self._rebuild_indices()
+
+    def _invalidate_cache(self) -> None:
+        with self._lock:
+            self._cache_dirty = True
+            self._idf_cache = None
+            self._avgdl_cache = None
+
+    @property
+    def size_bytes(self) -> int:
+        """Estimate size in bytes."""
+        return sum(len(e.content) for e in self.entries)
+    
+    def add_entry(self, entry: MemoryEntry) -> None:
+        """Add entry, respecting limits. Maintains indices incrementally."""
+        with self._lock:
+            self._ensure_cache_valid()
+            self.entries.append(entry)
             self._id_index[entry.id] = entry
             for tag in entry.tags:
                 if tag not in self._tag_index:
@@ -732,76 +773,44 @@ class MemoryFile:
                 self._category_index[cat] = []
             self._category_index[cat].append(entry)
             self._tokens_cache[entry.id] = entry.get_tokens()
-        # Precompute IDF and avgdl
-        if self._tokens_cache:
-            all_tokens = list(self._tokens_cache.values())
-            self._idf_cache = _compute_idf(all_tokens)
-            self._avgdl_cache = _compute_avgdl(all_tokens)
-        self._cache_dirty = False
-
-    def _ensure_cache_valid(self) -> None:
-        if self._cache_dirty:
-            self._rebuild_indices()
-
-    def _invalidate_cache(self) -> None:
-        self._cache_dirty = True
-        self._idf_cache = None
-        self._avgdl_cache = None
-
-    @property
-    def size_bytes(self) -> int:
-        """Estimate size in bytes."""
-        return sum(len(e.content) for e in self.entries)
-    
-    def add_entry(self, entry: MemoryEntry) -> None:
-        """Add entry, respecting limits. Maintains indices incrementally."""
-        self._ensure_cache_valid()
-        self.entries.append(entry)
-        self._id_index[entry.id] = entry
-        for tag in entry.tags:
-            if tag not in self._tag_index:
-                self._tag_index[tag] = set()
-            self._tag_index[tag].add(entry)
-        cat = entry.category
-        if cat not in self._category_index:
-            self._category_index[cat] = []
-        self._category_index[cat].append(entry)
-        self._tokens_cache[entry.id] = entry.get_tokens()
-        self._enforce_limits()
+            self._enforce_limits()
     
     def update_entry(self, entry_id: str, content: str) -> bool:
         """Update existing entry using index."""
-        self._ensure_cache_valid()
-        entry = self._id_index.get(entry_id)
-        if entry is None:
-            return False
-        entry.content = content
-        entry.updated_at = time.time()
-        entry.invalidate_tokens()
-        self._tokens_cache[entry.id] = entry.get_tokens()
-        return True
+        with self._lock:
+            self._ensure_cache_valid()
+            entry = self._id_index.get(entry_id)
+            if entry is None:
+                return False
+            entry.content = content
+            entry.updated_at = time.time()
+            entry.invalidate_tokens()
+            self._tokens_cache[entry.id] = entry.get_tokens()
+            return True
     
     def delete_entry(self, entry_id: str) -> bool:
         """Delete entry using index."""
-        self._ensure_cache_valid()
-        entry = self._id_index.get(entry_id)
-        if entry is None:
-            return False
-        self.entries.remove(entry)
-        del self._id_index[entry_id]
-        for tag in entry.tags:
-            if tag in self._tag_index:
-                self._tag_index[tag].discard(entry)
-        cat = entry.category
-        if cat in self._category_index and entry in self._category_index[cat]:
-            self._category_index[cat].remove(entry)
-        self._tokens_cache.pop(entry_id, None)
-        return True
+        with self._lock:
+            self._ensure_cache_valid()
+            entry = self._id_index.get(entry_id)
+            if entry is None:
+                return False
+            self.entries.remove(entry)
+            del self._id_index[entry_id]
+            for tag in entry.tags:
+                if tag in self._tag_index:
+                    self._tag_index[tag].discard(entry)
+            cat = entry.category
+            if cat in self._category_index and entry in self._category_index[cat]:
+                self._category_index[cat].remove(entry)
+            self._tokens_cache.pop(entry_id, None)
+            return True
     
     def get_entries_by_category(self, category: str) -> list[MemoryEntry]:
         """Get entries filtered by category using index."""
-        self._ensure_cache_valid()
-        return list(self._category_index.get(category, []))
+        with self._lock:
+            self._ensure_cache_valid()
+            return list(self._category_index.get(category, []))
     
     def search(self, query: str, active_domains: list[str] | None = None) -> list[MemoryEntry]:
         """Search entries by keyword with BM25 + domain relevance scoring.
@@ -810,8 +819,10 @@ class MemoryFile:
         domain-based boosting (soft blend, not hard filtering).
         Domain score uses Jaccard similarity between entry domains and active domains.
         """
-        if not self.entries:
-            return []
+        with self._lock:
+            if not self.entries:
+                return []
+            entries_snapshot = list(self.entries)
 
         query_tokens = _tokenize(query)
         query_tokens = _expand_query_terms(query_tokens, active_domains=active_domains)
@@ -822,7 +833,7 @@ class MemoryFile:
         query_terms = query_lower.split()
 
         entry_tokens = []
-        for entry in self.entries:
+        for entry in entries_snapshot:
             text = f"{entry.content} {entry.category} {' '.join(entry.tags)}"
             entry_tokens.append(_tokenize(text))
 
@@ -830,7 +841,7 @@ class MemoryFile:
         avgdl = _compute_avgdl(entry_tokens)
 
         scored: list[tuple[float, MemoryEntry]] = []
-        for i, entry in enumerate(self.entries):
+        for i, entry in enumerate(entries_snapshot):
             bm25 = _bm25_score(query_tokens, entry_tokens[i], idf, avgdl)
 
             substring_score = 0.0
@@ -879,8 +890,9 @@ class MemoryFile:
 
         scored.sort(key=lambda x: x[0], reverse=True)
         # Increment usage_count for top results to feed back into future scoring
-        for _, entry in scored[:10]:
-            entry.usage_count += 1
+        with self._lock:
+            for _, entry in scored[:10]:
+                entry.usage_count += 1
         return [entry for _, entry in scored]
     
     def _enforce_limits(self) -> None:

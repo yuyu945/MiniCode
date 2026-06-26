@@ -5,6 +5,7 @@ import tempfile
 import threading
 import time
 
+from minicode import memory as memory_module
 from minicode.memory import MemoryEntry, MemoryFile, MemoryManager, MemoryScope, MemoryTier
 
 
@@ -74,6 +75,35 @@ class TestMemoryStressLargeVolume:
 
 class TestMemoryStressConcurrent:
     """Concurrent access: threads reading while writing."""
+
+    def test_search_tolerates_entry_growth_during_scoring(self, monkeypatch):
+        mf = MemoryFile(scope=MemoryScope.PROJECT)
+        for i in range(3):
+            mf.add_entry(MemoryEntry(
+                id=f"seed-{i}", scope=MemoryScope.PROJECT,
+                category="pattern", content=f"Seed entry {i}",
+            ))
+
+        original_compute_idf = memory_module._compute_idf
+        injected = {"done": False}
+
+        def mutate_during_search(all_tokens):
+            if not injected["done"]:
+                injected["done"] = True
+                mf.add_entry(MemoryEntry(
+                    id="late-entry",
+                    scope=MemoryScope.PROJECT,
+                    category="pattern",
+                    content="Worker injected entry",
+                ))
+            return original_compute_idf(all_tokens)
+
+        monkeypatch.setattr(memory_module, "_compute_idf", mutate_during_search)
+
+        results = mf.search("worker injected")
+
+        assert isinstance(results, list)
+        assert any(entry.id == "late-entry" for entry in mf.entries)
 
     def test_concurrent_reads(self):
         mf = MemoryFile(scope=MemoryScope.PROJECT)
