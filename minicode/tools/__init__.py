@@ -57,9 +57,6 @@ _CORE_TOOLS = [
     git_tool,
     # Code intelligence
     code_intel_tool,
-    find_symbols_tool,
-    find_references_tool,
-    get_ast_info_tool,
     code_review_tool,
     # Visualization
     file_tree_tool,
@@ -139,6 +136,7 @@ def create_default_tool_registry(cwd: str, runtime: dict | None = None) -> ToolR
     tools = list(_CORE_TOOLS)
     if _is_full_tool_profile(profile):
         tools.extend(_load_utility_wrapper_tools())
+        tools.extend([find_symbols_tool, find_references_tool, get_ast_info_tool])
     tools.extend(
         [
             create_load_skill_tool(cwd),

@@ -145,6 +145,9 @@ def test_default_tool_registry_is_core_first(tmp_path: Path) -> None:
     assert "glob_files" in names
     assert "code_intel" in names
     assert "code_retrieve" not in names
+    assert "find_symbols" not in names
+    assert "find_references" not in names
+    assert "get_ast_info" not in names
     assert "base64_encode" not in names
     assert "csv_parse" not in names
 
@@ -197,6 +200,51 @@ def test_code_intel_go_to_definition_and_references(tmp_path: Path) -> None:
     assert references.ok is True
     assert "auth.py" in references.output
     assert "validator.py" in references.output
+
+
+def test_code_intel_document_symbols_hover_workspace_and_implementation(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "service.py").write_text(
+        "class UserService:\n"
+        "    def normalize_email(self, value: str) -> str:\n"
+        "        return value.strip().lower()\n"
+        "\n"
+        "def build_user(email: str) -> dict:\n"
+        "    service = UserService()\n"
+        "    return {'email': service.normalize_email(email)}\n",
+        encoding="utf-8",
+    )
+
+    ctx = ToolContext(cwd=str(workspace), permissions=None)
+    document_symbols = code_intel_tool.run(
+        {"operation": "document_symbols", "file_path": "service.py", "path": "."},
+        ctx,
+    )
+    hover = code_intel_tool.run(
+        {"operation": "hover", "symbol": "build_user", "path": "."},
+        ctx,
+    )
+    workspace_symbol = code_intel_tool.run(
+        {"operation": "workspace_symbol", "symbol": "UserService", "path": "."},
+        ctx,
+    )
+    implementation = code_intel_tool.run(
+        {"operation": "go_to_implementation", "symbol": "normalize_email", "path": "."},
+        ctx,
+    )
+
+    assert document_symbols.ok is True
+    assert "UserService" in document_symbols.output
+    assert "build_user" in document_symbols.output
+    assert hover.ok is True
+    assert "build_user" in hover.output
+    assert "service.py" in hover.output
+    assert workspace_symbol.ok is True
+    assert "UserService" in workspace_symbol.output
+    assert "service.py" in workspace_symbol.output
+    assert implementation.ok is True
+    assert "normalize_email" in implementation.output
 
 
 def test_full_tool_registry_can_opt_into_utility_wrappers(tmp_path: Path) -> None:
