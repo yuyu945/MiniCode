@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-from minicode.retrieval.code_index import CodeIndex
+from minicode.code_intel_backend import IndexCodeIntelBackend, select_code_intel_backend
 from minicode.tooling import ToolCapability, ToolDefinition, ToolMetadata, ToolResult
 from minicode.workspace import resolve_tool_path
 
@@ -53,102 +51,24 @@ def _run(input_data: dict, context) -> ToolResult:
         root = resolve_tool_path(context, input_data["path"], "analyze")
     except (PermissionError, RuntimeError) as error:
         return ToolResult(ok=False, output=str(error))
-
-    index = CodeIndex().build(root)
-    operation = input_data["operation"]
-
-    if operation in {"go_to_definition", "go_to_implementation"}:
-        symbol = input_data["symbol"]
-        definitions = index.definition_chunks(symbol)
-        if not definitions:
-            label = "definitions" if operation == "go_to_definition" else "implementations"
-            return ToolResult(ok=True, output=f"No {label} found for {symbol}")
-        title = "Definitions" if operation == "go_to_definition" else "Implementations"
-        lines = [f"{title} for {symbol}:"]
-        for chunk in definitions[:20]:
-            lines.append(
-                f"{chunk.path}:{chunk.start_line}-{chunk.end_line} "
-                f"{chunk.symbol_kind} {chunk.symbol_name} :: {chunk.signature}"
-            )
-        return ToolResult(ok=True, output="\n".join(lines))
-
-    if operation == "find_references":
-        symbol = input_data["symbol"]
-        definitions = index.definition_chunks(symbol)
-        references = index.reference_entries(symbol)
-        if not definitions and not references:
-            return ToolResult(ok=True, output=f"No references found for {symbol}")
-        lines = [f"References for {symbol}:"]
-        if definitions:
-            lines.append("Definitions:")
-            for chunk in definitions[:20]:
-                lines.append(
-                    f"  {chunk.path}:{chunk.start_line}-{chunk.end_line} "
-                    f"{chunk.symbol_kind} {chunk.symbol_name}"
-                )
-        if references:
-            lines.append("Usages:")
-            for ref in references[:50]:
-                lines.append(
-                    f"  {ref.path}:{ref.line} {ref.kind} from {ref.source_symbol or '?'}"
-                )
-        return ToolResult(ok=True, output="\n".join(lines))
-
-    if operation == "hover":
-        symbol = input_data["symbol"]
-        definitions = index.definition_chunks(symbol)
-        if not definitions:
-            return ToolResult(ok=True, output=f"No hover information found for {symbol}")
-        chunk = definitions[0]
-        snippet = "\n".join(chunk.content.splitlines()[:8]).strip()
-        lines = [
-            f"Hover for {symbol}:",
-            f"Location: {chunk.path}:{chunk.start_line}-{chunk.end_line}",
-            f"Kind: {chunk.symbol_kind}",
-            f"Signature: {chunk.signature}",
-        ]
-        if snippet:
-            lines.extend(["", snippet])
-        return ToolResult(ok=True, output="\n".join(lines))
-
-    if operation == "workspace_symbol":
-        query = input_data["symbol"].lower()
-        matches = [
-            chunk
-            for chunk in index.chunks
-            if chunk.symbol_kind != "file" and query in chunk.symbol_name.lower()
-        ]
-        if not matches:
-            return ToolResult(ok=True, output=f"No workspace symbols found for {input_data['symbol']}")
-        lines = [f"Workspace symbols for {input_data['symbol']}:"]
-        for chunk in matches[:50]:
-            lines.append(
-                f"{chunk.path}:{chunk.start_line}-{chunk.end_line} "
-                f"{chunk.symbol_kind} {chunk.symbol_name}"
-            )
-        return ToolResult(ok=True, output="\n".join(lines))
-
-    file_path = input_data["file_path"]
+    backend = select_code_intel_backend(root, input_data.get("file_path"))
     try:
-        target = resolve_tool_path(context, file_path, "analyze")
-    except (PermissionError, RuntimeError) as error:
-        return ToolResult(ok=False, output=str(error))
-    if not target.exists():
-        return ToolResult(ok=False, output=f"File not found: {file_path}")
-
-    rel = target.relative_to(root).as_posix() if target != root else Path(file_path).name
-    chunks = [
-        chunk for chunk in index.chunks_by_path.get(rel, [])
-        if chunk.symbol_kind != "file"
-    ]
-    if not chunks:
-        return ToolResult(ok=True, output=f"No symbols found in {rel}")
-    lines = [f"Document symbols for {rel}:"]
-    for chunk in chunks[:100]:
-        lines.append(
-            f"{chunk.start_line}-{chunk.end_line} {chunk.symbol_kind} {chunk.symbol_name}"
+        result = backend.run(
+            input_data["operation"],
+            symbol=input_data.get("symbol"),
+            file_path=input_data.get("file_path"),
         )
-    return ToolResult(ok=True, output="\n".join(lines))
+        return ToolResult(ok=result.ok, output=result.output)
+    except Exception:
+        # Fallback to deterministic local index backend if the external LSP backend
+        # is configured but unavailable or protocol-incompatible.
+        fallback = IndexCodeIntelBackend(root)
+        result = fallback.run(
+            input_data["operation"],
+            symbol=input_data.get("symbol"),
+            file_path=input_data.get("file_path"),
+        )
+        return ToolResult(ok=result.ok, output=result.output)
 
 
 code_intel_tool = ToolDefinition(
