@@ -267,31 +267,31 @@ def validate_provider_runtime(runtime: dict[str, Any]) -> list[str]:
     if provider == Provider.OPENAI:
         if not runtime.get("openaiApiKey"):
             errors.append(
-                "Provider is openai for this model, but OPENAI_API_KEY/openaiApiKey is not configured."
+                "Provider is openai for this model, but OPENAI_API_KEY/openaiApiKey is not configured. Set OPENAI_API_KEY or openaiApiKey."
             )
         if not _is_valid_http_url(runtime.get("openaiBaseUrl")):
-            errors.append("OpenAI base URL must be an http(s) URL.")
+            errors.append("OpenAI base URL must be an http(s) URL. Set OPENAI_BASE_URL/openaiBaseUrl to a valid URL.")
     elif provider == Provider.OPENROUTER:
         if not runtime.get("openrouterApiKey"):
             errors.append(
-                "Provider is openrouter for this model, but OPENROUTER_API_KEY is not configured."
+                "Provider is openrouter for this model, but OPENROUTER_API_KEY is not configured. Set OPENROUTER_API_KEY."
             )
         if not _is_valid_http_url(runtime.get("openrouterBaseUrl")):
-            errors.append("OpenRouter base URL must be an http(s) URL.")
+            errors.append("OpenRouter base URL must be an http(s) URL. Set OPENROUTER_BASE_URL to a valid URL.")
     elif provider == Provider.CUSTOM:
         if not runtime.get("customBaseUrl"):
-            errors.append("Provider is custom, but CUSTOM_API_BASE_URL/customBaseUrl is not configured.")
+            errors.append("Provider is custom, but CUSTOM_API_BASE_URL/customBaseUrl is not configured. Set CUSTOM_API_BASE_URL or customBaseUrl.")
         elif not _is_valid_http_url(runtime.get("customBaseUrl")):
-            errors.append("Custom base URL must be an http(s) URL.")
+            errors.append("Custom base URL must be an http(s) URL. Set CUSTOM_API_BASE_URL/customBaseUrl to a valid URL.")
         if not runtime.get("customApiKey"):
-            errors.append("Provider is custom, but CUSTOM_API_KEY/customApiKey is not configured.")
+            errors.append("Provider is custom, but CUSTOM_API_KEY/customApiKey is not configured. Set CUSTOM_API_KEY or customApiKey.")
     elif provider == Provider.ANTHROPIC:
         if not (runtime.get("apiKey") or runtime.get("authToken")):
             errors.append(
-                "Provider is anthropic for this model, but ANTHROPIC_API_KEY/ANTHROPIC_AUTH_TOKEN is not configured."
+                "Provider is anthropic for this model, but ANTHROPIC_API_KEY/ANTHROPIC_AUTH_TOKEN is not configured. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN."
             )
         if not _is_valid_http_url(runtime.get("baseUrl")):
-            errors.append("Anthropic base URL must be an http(s) URL.")
+            errors.append("Anthropic base URL must be an http(s) URL. Set ANTHROPIC_BASE_URL to a valid URL.")
 
     return errors
 

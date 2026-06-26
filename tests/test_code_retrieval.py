@@ -10,6 +10,63 @@ from minicode.retrieval.code_index import CodeIndex
 from minicode.retrieval.types import CodeRetrievalResult, RetrievalIntent
 
 
+def _write_repo_query_fixture(workspace: Path) -> Path:
+    workspace.mkdir()
+    (workspace / "agent_loop.py").write_text(
+        "def run_agent_turn(task: str) -> str:\n"
+        "    return task\n",
+        encoding="utf-8",
+    )
+    (workspace / "context_compactor.py").write_text(
+        "def _run_full_compact(turn: str) -> str:\n"
+        "    return turn\n",
+        encoding="utf-8",
+    )
+    (workspace / "cybernetic_orchestrator.py").write_text(
+        "def run_cost_control(turn: str) -> str:\n"
+        "    return turn\n",
+        encoding="utf-8",
+    )
+    return workspace
+
+
+def _write_permission_fixture(workspace: Path) -> Path:
+    workspace.mkdir()
+    (workspace / "permissions.py").write_text(
+        "class PermissionManager:\n"
+        "    def decide(self, action: str) -> bool:\n"
+        "        return bool(action)\n"
+        "\n"
+        "class PermissionGate:\n"
+        "    def check(self, action: str) -> bool:\n"
+        "        return bool(action)\n",
+        encoding="utf-8",
+    )
+    (workspace / "auto_mode.py").write_text(
+        "class PermissionMode:\n"
+        "    pass\n",
+        encoding="utf-8",
+    )
+    return workspace
+
+
+def _write_llm_fixture(workspace: Path) -> Path:
+    (workspace / "infra").mkdir(parents=True)
+    (workspace / "infra" / "llm.py").write_text(
+        "class LLMClient:\n"
+        "    def complete(self, prompt: str) -> str:\n"
+        "        return prompt\n",
+        encoding="utf-8",
+    )
+    (workspace / "infra" / "llm_observability.py").write_text(
+        "class ObservableLLMClient:\n"
+        "    def record(self, prompt: str) -> str:\n"
+        "        return prompt\n",
+        encoding="utf-8",
+    )
+    return workspace
+
+
 def test_code_retrieval_result_supports_multi_stage_evidence():
     result = CodeRetrievalResult(
         query="where does login validation happen",
@@ -201,8 +258,8 @@ def test_code_retrieval_benchmark_reports_topk_metrics(tmp_path):
     assert 0.0 <= metrics["summary"]["top5_file_hit_rate"] <= 1.0
 
 
-def test_code_retrieval_prefers_real_runtime_entrypoint_on_repo_queries():
-    workspace = Path("D:/Python/agent/MiniCode/MiniCode-Python/minicode")
+def test_code_retrieval_prefers_real_runtime_entrypoint_on_repo_queries(tmp_path):
+    workspace = _write_repo_query_fixture(tmp_path / "repo")
     retrieval = CodeRetrieval().index_workspace(workspace)
 
     results = retrieval.search("where does the agent run a full turn", top_k=5, mode="hybrid_rerank")
@@ -212,8 +269,8 @@ def test_code_retrieval_prefers_real_runtime_entrypoint_on_repo_queries():
     assert results[0]["symbol_name"] == "run_agent_turn"
 
 
-def test_code_retrieval_prefers_manager_class_for_permission_query():
-    workspace = Path("D:/Python/agent/MiniCode/MiniCode-Python/minicode")
+def test_code_retrieval_prefers_manager_class_for_permission_query(tmp_path):
+    workspace = _write_permission_fixture(tmp_path / "repo")
     retrieval = CodeRetrieval().index_workspace(workspace)
 
     results = retrieval.search("which class owns permission decisions", top_k=5, mode="hybrid_rerank")
@@ -223,8 +280,8 @@ def test_code_retrieval_prefers_manager_class_for_permission_query():
     assert results[0]["symbol_name"] == "PermissionManager"
 
 
-def test_code_retrieval_splits_acronym_identifiers_for_class_lookup():
-    workspace = Path("D:/Python/agent/super-agent-gopy/python/app")
+def test_code_retrieval_splits_acronym_identifiers_for_class_lookup(tmp_path):
+    workspace = _write_llm_fixture(tmp_path / "repo")
     retrieval = CodeRetrieval().index_workspace(workspace)
 
     results = retrieval.search("find the llm client", top_k=5, mode="hybrid_rerank")
