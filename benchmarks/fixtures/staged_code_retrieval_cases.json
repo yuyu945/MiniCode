@@ -1,0 +1,74 @@
+[
+  {
+    "query_id": "minicode_q01",
+    "query_type": "natural_language_location",
+    "query": "where is the main context compaction orchestrator",
+    "expected_targets": [
+      {
+        "path": "context_compactor.py",
+        "symbol_name": "ContextCompactor",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "minicode_q02",
+    "query_type": "direct_symbol_lookup",
+    "query": "run_tty_app function",
+    "expected_targets": [
+      {
+        "path": "tty_app.py",
+        "symbol_name": "run_tty_app",
+        "symbol_kind": "function"
+      }
+    ]
+  },
+  {
+    "query_id": "minicode_q03",
+    "query_type": "cross_file_dependency",
+    "query": "where is memory search implemented",
+    "expected_targets": [
+      {
+        "path": "memory.py",
+        "symbol_name": "search",
+        "symbol_kind": "method"
+      }
+    ]
+  },
+  {
+    "query_id": "minicode_q04",
+    "query_type": "natural_language_location",
+    "query": "which class controls tool scheduling",
+    "expected_targets": [
+      {
+        "path": "agent_intelligence.py",
+        "symbol_name": "ToolScheduler",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "minicode_q05",
+    "query_type": "acronym_alias",
+    "query": "where is OpenAI adapter defined",
+    "expected_targets": [
+      {
+        "path": "openai_adapter.py",
+        "symbol_name": "OpenAIModelAdapter",
+        "symbol_kind": "class"
+      }
+    ]
+  },
+  {
+    "query_id": "minicode_q06",
+    "query_type": "cross_file_dependency",
+    "query": "find the unified memory pipeline facade",
+    "expected_targets": [
+      {
+        "path": "memory_pipeline.py",
+        "symbol_name": "MemoryPipeline",
+        "symbol_kind": "class"
+      }
+    ]
+  }
+]

@@ -10,6 +10,56 @@
 
 ---
 
+## Current Assessment (2026-06-26)
+
+The staged retrieval refactor is now runnable, but it is **not yet enterprise-grade**. The current implementation has three material gaps:
+
+1. **Intent and routing remain heuristic-driven**
+   - `build_retrieval_intent()` is regex + stopword parsing, not an LLM-controlled retrieval planner.
+   - `CodeRetrievalPipeline._structural_narrowing()` still contains query-shaped boosts that overfit a small number of benchmark cases.
+
+2. **Structural retrieval lacks a true symbol/reference graph**
+   - `CodeIndex` currently builds chunk and import indexes, but it does not expose robust definition lookup, reference lookup, or caller/callee style expansion.
+   - Dependency expansion is therefore limited to import neighbors and does not support reliable cross-file convergence.
+
+3. **Benchmark outputs are not trustworthy enough for quality decisions**
+   - `benchmark_code_retrieval()` still reports legacy method buckets (`baseline_dense`, `hybrid`, `hybrid_rerank`) even though `search(..., mode=...)` now uses one shared staged pipeline.
+   - Existing fixtures are useful smoke tests, but they are not yet categorized by query type or designed to detect overfitting to hand-authored scoring rules.
+
+## Milestone 2 Goal
+
+Raise the retrieval system from **prototype** to a more defensible **structural retrieval baseline** before adding higher-level LLM planning.
+
+This milestone is intentionally narrow:
+
+- add a real `symbol/reference index` to the retrieval core
+- use symbol definitions and references during convergence and expansion
+- remove benchmark method illusions and evaluate the actual staged pipeline directly
+- classify benchmark cases by retrieval shape so regressions are observable
+
+## Milestone 2 Risks
+
+- Python AST gives strong structure, but TypeScript is still regex-parsed; symbol/reference quality will remain asymmetric.
+- Reference expansion can easily increase noise; ranking must favor definition-quality hits over generic mention hits.
+- Benchmark compatibility will change because the old multi-method output shape is misleading and should no longer drive pass/fail decisions.
+
+## Milestone 2 Validation Strategy
+
+- focused unit tests for symbol definition/reference indexing
+- focused retrieval tests that require cross-file symbol convergence, not just import adjacency
+- benchmark fixture validation on at least:
+  - direct symbol lookup
+  - natural-language location query
+  - cross-file dependency query
+  - acronym / alias query
+- runnable benchmark report that exposes:
+  - top-1 / top-k hit rates
+  - MRR
+  - context precision
+  - query-type breakdown
+
+---
+
 ### Task 1: Create Retrieval Core Types And Package Boundary
 
 **Files:**

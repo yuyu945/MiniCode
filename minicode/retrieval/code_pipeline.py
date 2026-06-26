@@ -43,7 +43,7 @@ class CodeRetrievalPipeline:
             corrections.append("continue_expansion")
 
         if max_hops > 0:
-            expanded = self._dependency_expansion(candidates, max_hops=max_hops)
+            expanded = self._dependency_expansion(candidates, intent, max_hops=max_hops)
             for chunk, score, why, hop, source_path in expanded:
                 key = (chunk.path, chunk.symbol_name, chunk.start_line)
                 if key in seen:
@@ -64,12 +64,21 @@ class CodeRetrievalPipeline:
     def _coarse_search(self, intent) -> list[tuple[IndexedChunk, list[str], list[str]]]:
         results: list[tuple[IndexedChunk, list[str], list[str]]] = []
         for chunk in self.index.chunks:
-            matched_terms = [term for term in intent.keywords if term in chunk.path.lower() or term in chunk.content.lower() or term in chunk.symbol_name.lower()]
+            matched_terms = [
+                term
+                for term in intent.keywords
+                if term in chunk.path.lower()
+                or term in chunk.content.lower()
+                or term in chunk.symbol_name.lower()
+                or term in chunk.references
+            ]
             if not matched_terms:
                 continue
             why = ["keyword_match"]
             if any(hint in chunk.path.lower() for hint in intent.file_hints):
                 why.append("file_hint")
+            if any(term in chunk.references for term in intent.symbols):
+                why.append("symbol_reference")
             results.append((chunk, matched_terms, why))
         return results
 
@@ -82,12 +91,22 @@ class CodeRetrievalPipeline:
             path_lower = chunk.path.lower()
             aliases = _identifier_aliases(chunk.symbol_name)
             basename_aliases = _identifier_aliases(Path(chunk.path).stem)
+            symbol_overlap = set(intent.symbols) & aliases
+            basename_overlap = set(intent.symbols) & basename_aliases
             if chunk.symbol_kind in {"function", "method", "class"}:
                 score += 0.4
             if any(term == symbol_lower for term in intent.symbols):
                 score += 0.8
             if any(term in aliases for term in intent.symbols):
                 score += 1.2
+            if symbol_overlap:
+                score += 0.45 * len(symbol_overlap)
+            if basename_overlap:
+                score += 0.15 * len(basename_overlap)
+            if symbol_overlap and symbol_overlap == set(intent.symbols):
+                score += 1.0
+            if any(term in chunk.references for term in intent.symbols):
+                score += 0.9
             if any(hint in chunk.path.lower() for hint in intent.file_hints):
                 score += 0.5
             if "validation" in intent.keywords and "valid" in chunk.symbol_name.lower():
@@ -133,17 +152,45 @@ class CodeRetrievalPipeline:
                     score -= 1.2
                 if symbol_lower.startswith("_"):
                     score -= 0.5
+            if chunk.references and any(term in chunk.references for term in matched_terms):
+                score += 0.3
+            if chunk.symbol_kind == "class" and any(term in aliases for term in {"manager", "adapter", "client"} & set(intent.symbols)):
+                score += 0.5
             ranked.append((chunk, score, matched_terms, why))
         ranked.sort(key=lambda item: item[1], reverse=True)
         return ranked
 
-    def _dependency_expansion(self, base_candidates: list[CodeEvidence], max_hops: int) -> list[tuple[IndexedChunk, float, list[str], int, str]]:
+    def _dependency_expansion(self, base_candidates: list[CodeEvidence], intent, max_hops: int) -> list[tuple[IndexedChunk, float, list[str], int, str]]:
         expanded: list[tuple[IndexedChunk, float, list[str], int, str]] = []
-        chunk_by_path: dict[str, list[IndexedChunk]] = {}
-        for chunk in self.index.chunks:
-            chunk_by_path.setdefault(chunk.path, []).append(chunk)
         frontier = [(candidate.path, candidate.score, 0) for candidate in base_candidates]
         visited_paths = {candidate.path for candidate in base_candidates}
+        seen_definition_keys: set[tuple[str, str, int]] = set()
+
+        for candidate in base_candidates:
+            source_chunk = self.index.get_chunk(candidate.path, candidate.symbol_name, candidate.start_line)
+            if source_chunk is None:
+                continue
+            related_symbols = {
+                symbol
+                for symbol in source_chunk.references
+                if symbol in set(intent.symbols) or symbol in set(candidate.matched_terms)
+            }
+            for symbol in sorted(related_symbols):
+                for definition in self.index.definition_chunks(symbol):
+                    key = (definition.path, definition.symbol_name, definition.start_line)
+                    if key in seen_definition_keys or definition.path == candidate.path:
+                        continue
+                    seen_definition_keys.add(key)
+                    expanded.append(
+                        (
+                            definition,
+                            max(candidate.score - 0.05, 0.1),
+                            ["symbol_definition"],
+                            1,
+                            candidate.path,
+                        )
+                    )
+
         while frontier:
             source_path, parent_score, hop = frontier.pop(0)
             if hop >= max_hops:
@@ -152,7 +199,7 @@ class CodeRetrievalPipeline:
                 if imported in visited_paths:
                     continue
                 visited_paths.add(imported)
-                imported_chunks = chunk_by_path.get(imported, [])
+                imported_chunks = self.index.chunks_by_path.get(imported, [])
                 if not imported_chunks:
                     continue
                 target = self._pick_best_chunk(imported_chunks)

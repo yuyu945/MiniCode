@@ -20,6 +20,8 @@ _STOPWORDS = {
     "find",
     "implemented",
     "implementation",
+    "defined",
+    "define",
     "function",
     "class",
     "method",

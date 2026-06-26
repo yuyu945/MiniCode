@@ -32,6 +32,8 @@ class CodeRetrieval:
         return {
             "indexed_files": len(self._index.import_graph),
             "indexed_chunks": len(self._index.chunks),
+            "indexed_definitions": sum(len(items) for items in self._index.symbol_definitions.values()),
+            "indexed_references": sum(len(items) for items in self._index.symbol_references.values()),
             "languages": sorted({chunk.language for chunk in self._index.chunks}),
             "failed_files": list(self._index.failed_files),
         }
@@ -74,22 +76,21 @@ def benchmark_code_retrieval(
 ) -> dict[str, Any]:
     retrieval = CodeRetrieval().benchmark_ready_index(workspace_path)
     cases = json.loads(Path(fixture_path).read_text(encoding="utf-8"))
-    methods = ["baseline_dense", "hybrid", "hybrid_rerank"]
-    per_method_cases: dict[str, list[dict[str, Any]]] = {method: [] for method in methods}
-    merged_cases: list[dict[str, Any]] = []
-
+    case_results: list[dict[str, Any]] = []
     for case in cases:
         query = case["query"]
         expected_targets = case["expected_targets"]
-        case_record = {"query": query, "expected_targets": expected_targets, "methods": {}}
-        for method in methods:
-            results = retrieval.search(query, top_k=top_k, mode=method)
-            file_hit_rank = _find_hit_rank(results, expected_targets, symbol_only=False)
-            symbol_hit_rank = _find_hit_rank(results, expected_targets, symbol_only=True)
-            relevant_count = sum(1 for result in results if _matches_expected(result, expected_targets))
-            context_precision = relevant_count / len(results) if results else 0.0
-            method_case = {
+        query_type = str(case.get("query_type", "general"))
+        results = retrieval.search(query, top_k=top_k)
+        file_hit_rank = _find_hit_rank(results, expected_targets, symbol_only=False)
+        symbol_hit_rank = _find_hit_rank(results, expected_targets, symbol_only=True)
+        relevant_count = sum(1 for result in results if _matches_expected(result, expected_targets))
+        context_precision = relevant_count / len(results) if results else 0.0
+        case_results.append(
+            {
+                "query_id": case.get("query_id"),
                 "query": query,
+                "query_type": query_type,
                 "file_hit_rank": file_hit_rank,
                 "symbol_hit_rank": symbol_hit_rank,
                 "top_result": results[0] if results else None,
@@ -98,20 +99,20 @@ def benchmark_code_retrieval(
                 "context_precision": round(context_precision, 4),
                 "retrieved_chunks": len(results),
             }
-            per_method_cases[method].append(method_case)
-            case_record["methods"][method] = method_case
-        merged_cases.append(case_record)
+        )
 
-    summaries = {
-        method: _summarize_method(per_method_cases[method], top_k=top_k)
-        for method in methods
-    }
+    query_type_summary: dict[str, dict[str, Any]] = {}
+    query_types = sorted({case["query_type"] for case in case_results})
+    for query_type in query_types:
+        subset = [case for case in case_results if case["query_type"] == query_type]
+        query_type_summary[query_type] = _summarize_cases(subset, top_k=top_k)
+
     return {
         "workspace": str(workspace_path),
         "fixture_path": str(fixture_path),
-        "methods": per_method_cases,
-        "summary": summaries,
-        "cases": merged_cases,
+        "summary": _summarize_cases(case_results, top_k=top_k),
+        "query_type_summary": query_type_summary,
+        "cases": case_results,
         "stats": retrieval.stats,
     }
 
@@ -153,7 +154,7 @@ def _find_hit_rank(
     return None
 
 
-def _summarize_method(cases: list[dict[str, Any]], top_k: int) -> dict[str, Any]:
+def _summarize_cases(cases: list[dict[str, Any]], top_k: int) -> dict[str, Any]:
     total = max(len(cases), 1)
     top1_file_hits = sum(1 for case in cases if case["file_hit_rank"] == 1)
     top5_file_hits = sum(1 for case in cases if case["file_hit_rank"] is not None and case["file_hit_rank"] <= top_k)
@@ -168,4 +169,5 @@ def _summarize_method(cases: list[dict[str, Any]], top_k: int) -> dict[str, Any]
         "mrr": round(sum(reciprocal_ranks) / total, 4),
         "context_precision": round(avg_precision, 4),
         "average_retrieved_chunks": round(avg_chunks, 4),
+        "case_count": len(cases),
     }

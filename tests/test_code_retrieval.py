@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from minicode.code_retrieval import CodeRetrieval, benchmark_code_retrieval
+from minicode.retrieval.code_index import CodeIndex
 from minicode.retrieval.types import CodeRetrievalResult, RetrievalIntent
 
 
@@ -52,7 +53,32 @@ def test_code_retrieval_indexes_python_and_typescript_symbols(tmp_path):
 
     assert stats["indexed_files"] == 2
     assert stats["indexed_chunks"] >= 4
+    assert stats["indexed_definitions"] >= 3
     assert {"python", "typescript"} <= set(stats["languages"])
+
+
+def test_code_index_tracks_symbol_definitions_and_references(tmp_path):
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "auth.py").write_text(
+        "from validator import validate_user\n"
+        "def login(token: str):\n"
+        "    return validate_user(token)\n",
+        encoding="utf-8",
+    )
+    (workspace / "validator.py").write_text(
+        "def validate_user(token: str):\n"
+        "    return token == 'ok'\n",
+        encoding="utf-8",
+    )
+
+    index = CodeIndex().build(workspace)
+
+    definitions = index.definition_chunks("validate_user")
+    references = index.reference_entries("validate_user")
+
+    assert any(item.path == "validator.py" for item in definitions)
+    assert any(item.path == "auth.py" and item.source_symbol == "login" for item in references)
 
 
 def test_code_retrieval_search_returns_structured_symbol_results(tmp_path):
@@ -138,12 +164,16 @@ def test_code_retrieval_benchmark_reports_topk_metrics(tmp_path):
         json.dumps(
             [
                 {
+                    "query_id": "case-1",
+                    "query_type": "cross_file_dependency",
                     "query": "where is memory search implemented",
                     "expected_targets": [
-                        {"path": "memory.py", "symbol_name": "search", "symbol_kind": "function"},
+                        {"path": "memory.py", "symbol_name": "search", "symbol_kind": "method"},
                     ],
                 },
                 {
+                    "query_id": "case-2",
+                    "query_type": "direct_symbol_lookup",
                     "query": "find session loader",
                     "expected_targets": [
                         {"path": "session.ts", "symbol_name": "loadSession", "symbol_kind": "function"},
@@ -156,8 +186,7 @@ def test_code_retrieval_benchmark_reports_topk_metrics(tmp_path):
 
     metrics = benchmark_code_retrieval(workspace, fixture_path)
 
-    assert {"methods", "summary", "cases"} <= set(metrics)
-    assert {"baseline_dense", "hybrid", "hybrid_rerank"} <= set(metrics["methods"])
+    assert {"summary", "query_type_summary", "cases"} <= set(metrics)
     assert {
         "top1_file_hit_rate",
         "top5_file_hit_rate",
@@ -165,9 +194,11 @@ def test_code_retrieval_benchmark_reports_topk_metrics(tmp_path):
         "mrr",
         "context_precision",
         "average_retrieved_chunks",
-    } <= set(metrics["summary"]["hybrid_rerank"])
+        "case_count",
+    } <= set(metrics["summary"])
+    assert {"cross_file_dependency", "direct_symbol_lookup"} <= set(metrics["query_type_summary"])
     assert len(metrics["cases"]) == 2
-    assert 0.0 <= metrics["summary"]["hybrid_rerank"]["top5_file_hit_rate"] <= 1.0
+    assert 0.0 <= metrics["summary"]["top5_file_hit_rate"] <= 1.0
 
 
 def test_code_retrieval_prefers_real_runtime_entrypoint_on_repo_queries():
