@@ -247,6 +247,29 @@ def test_code_intel_document_symbols_hover_workspace_and_implementation(tmp_path
     assert "normalize_email" in implementation.output
 
 
+def test_legacy_code_nav_tools_still_work_as_compat_layer(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "service.py").write_text(
+        "class UserService:\n"
+        "    def normalize_email(self, value: str) -> str:\n"
+        "        return value.strip().lower()\n",
+        encoding="utf-8",
+    )
+
+    ctx = ToolContext(cwd=str(workspace), permissions=None)
+    symbols = find_symbols_tool.run({"path": "service.py", "symbol_type": "all"}, ctx)
+    references = find_references_tool.run({"symbol_name": "normalize_email", "path": "."}, ctx)
+    ast_info = get_ast_info_tool.run({"file_path": "service.py"}, ctx)
+
+    assert symbols.ok is True
+    assert "UserService" in symbols.output
+    assert references.ok is True
+    assert "normalize_email" in references.output
+    assert ast_info.ok is True
+    assert "Classes:" in ast_info.output
+
+
 def test_full_tool_registry_can_opt_into_utility_wrappers(tmp_path: Path) -> None:
     tools = create_default_tool_registry(str(tmp_path), runtime={"toolProfile": "full"})
     names = {tool.name for tool in tools.list()}
