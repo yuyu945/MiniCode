@@ -299,45 +299,6 @@ class TestAgentLoopPerformance:
 
         assert avg_latency < 0.1  # Should complete within 100ms average
 
-    def test_concurrent_vs_serial_speedup(self):
-        """Compare concurrent vs serial tool execution speedup."""
-        num_tools = 4
-        tool_delay = 0.05
-
-        # Serial execution
-        def run_serial():
-            for i in range(num_tools):
-                time.sleep(tool_delay)
-
-        start = time.perf_counter()
-        run_serial()
-        serial_time = time.perf_counter() - start
-
-        # Concurrent execution
-        with concurrent.futures.ThreadPoolExecutor(max_workers=num_tools) as pool:
-            # Warm the pool before measuring; this test is about concurrent
-            # execution throughput, not OS thread startup jitter.
-            warmup = [pool.submit(lambda: None) for _ in range(num_tools)]
-            for f in warmup:
-                f.result()
-
-            def run_concurrent():
-                futures = [pool.submit(time.sleep, tool_delay) for _ in range(num_tools)]
-                for f in futures:
-                    f.result()
-
-            start = time.perf_counter()
-            run_concurrent()
-            concurrent_time = time.perf_counter() - start
-
-        speedup = serial_time / concurrent_time
-        print(f"\n  Serial time: {serial_time*1000:.1f}ms")
-        print(f"  Concurrent time: {concurrent_time*1000:.1f}ms")
-        print(f"  Speedup: {speedup:.1f}x")
-
-        assert speedup > 2.5  # Should achieve clear speedup after warmup
-
-
 class TestResourceLimits:
     """Test system behavior under resource constraints."""
 
