@@ -25,6 +25,7 @@ from minicode.memory import (
     _tokenize,
     _CODE_TERM_EXPANSIONS,
 )
+from minicode.memory_pipeline import MemoryPipeline
 from minicode.context_manager import ContextManager, estimate_tokens
 from minicode.session import (
     save_session,
@@ -200,6 +201,24 @@ class TestMemoryContextManagerIntegration:
         tokens_after = ctx2.get_stats().total_tokens
 
         assert tokens_after > tokens_before
+
+    def test_memory_pipeline_returns_partitioned_docs_and_memory(self, tmp_path: Path):
+        workspace = tmp_path / "repo"
+        workspace.mkdir()
+        (workspace / "README.md").write_text("Project uses FastAPI and pytest", encoding="utf-8")
+        manager = MemoryManager(project_root=workspace)
+        manager.add_entry(MemoryScope.PROJECT, "testing", "Use pytest fixtures", ["pytest"])
+
+        pipeline = MemoryPipeline(manager)
+        pipeline.initialize(workspace_path=str(workspace), enable_reranker=False, enable_vector=False)
+
+        result = pipeline.read("how are tests organized", ["tests/test_api.py"])
+        sources = {item["source"] for item in result}
+        partitions = {item["partition"] for item in result}
+
+        assert "docs_pipeline" in sources
+        assert "memory_pipeline" in sources
+        assert "project_docs" in partitions
 
 
 # ---------------------------------------------------------------------------

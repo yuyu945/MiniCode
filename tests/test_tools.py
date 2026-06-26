@@ -11,6 +11,7 @@ import minicode.tools.run_command as run_command_module
 from minicode.permissions import PermissionManager
 from minicode.tools.batch_ops import batch_copy_tool, batch_move_tool
 from minicode.tools.code_nav import find_references_tool, find_symbols_tool, get_ast_info_tool
+from minicode.tools.code_retrieve import code_retrieve_tool
 from minicode.tools.code_review import code_review_tool
 from minicode.tools.file_tree import file_tree_tool
 from minicode.tools.run_command import _build_execution_command, split_command_line
@@ -139,6 +140,7 @@ def test_default_tool_registry_is_core_first(tmp_path: Path) -> None:
 
     assert "read_file" in names
     assert "run_command" in names
+    assert "code_retrieve" in names
     assert "base64_encode" not in names
     assert "csv_parse" not in names
 
@@ -290,3 +292,16 @@ def test_core_tool_registry_does_not_import_utility_modules(tmp_path: Path) -> N
     create_default_tool_registry(str(tmp_path), runtime={"toolProfile": "core"})
 
     assert all(module_name not in sys.modules for module_name in utility_modules)
+
+
+def test_code_retrieve_rejects_workspace_escape(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    result = code_retrieve_tool.run(
+        {"query": "find login", "path": "../outside"},
+        ToolContext(cwd=str(workspace), permissions=None),
+    )
+
+    assert result.ok is False
+    assert "escapes workspace" in result.output

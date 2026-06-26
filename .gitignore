@@ -36,6 +36,8 @@ env/
 
 # Testing
 .pytest_cache/
+.pytest-tmp-retrieval/
+pytest-run/
 .coverage
 htmlcov/
 
@@ -49,6 +51,8 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
+scratch-retrieval/
+smoke-memory-repo/
 
 # MiniCode specific
 .mini-code/

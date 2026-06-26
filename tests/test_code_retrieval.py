@@ -6,6 +6,28 @@ import json
 from pathlib import Path
 
 from minicode.code_retrieval import CodeRetrieval, benchmark_code_retrieval
+from minicode.retrieval.types import CodeRetrievalResult, RetrievalIntent
+
+
+def test_code_retrieval_result_supports_multi_stage_evidence():
+    result = CodeRetrievalResult(
+        query="where does login validation happen",
+        intent=RetrievalIntent(
+            query="where does login validation happen",
+            symbols=["login", "validate"],
+            keywords=["login", "validation"],
+            file_hints=["auth", "user"],
+            stage_budget=5,
+            dependency_hops=1,
+        ),
+        candidates=[],
+        expansions=[],
+        corrections=[],
+    )
+
+    assert result.intent.stage_budget == 5
+    assert result.expansions == []
+    assert result.corrections == []
 
 
 def test_code_retrieval_indexes_python_and_typescript_symbols(tmp_path):
@@ -58,6 +80,44 @@ def test_code_retrieval_search_returns_structured_symbol_results(tmp_path):
         "matched_terms",
     } <= set(top)
     assert top["symbol_name"] in {"AuthService", "login"}
+
+
+def test_code_retrieval_expands_from_login_to_validator(tmp_path):
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "auth.py").write_text(
+        "from validator import validate_user\n"
+        "def login(token: str):\n"
+        "    return validate_user(token)\n",
+        encoding="utf-8",
+    )
+    (workspace / "validator.py").write_text(
+        "def validate_user(token: str):\n"
+        "    return token == 'ok'\n",
+        encoding="utf-8",
+    )
+
+    retrieval = CodeRetrieval().index_workspace(workspace)
+    results = retrieval.search("where is login validation implemented", top_k=5)
+
+    paths = {item["path"] for item in results}
+    assert "auth.py" in paths
+    assert "validator.py" in paths
+
+
+def test_code_retrieval_records_correction_when_first_guess_is_weak(tmp_path):
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "session.py").write_text(
+        "def create_session(user_id: str):\n"
+        "    return user_id\n",
+        encoding="utf-8",
+    )
+
+    retrieval = CodeRetrieval().index_workspace(workspace)
+    result = retrieval.retrieve("find login code", top_k=3)
+
+    assert isinstance(result.corrections, list)
 
 
 def test_code_retrieval_benchmark_reports_topk_metrics(tmp_path):

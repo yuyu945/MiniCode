@@ -57,6 +57,7 @@ class MemoryPipeline:
         self._reflection: Any = None
         self._vector_store: Any = None
         self._dense_store: Any = None
+        self._docs_memory_pipeline: Any = None
         self._domain_classifier_loaded = False
 
         self._initialized = False
@@ -122,6 +123,12 @@ class MemoryPipeline:
                             self._dense_store.index_entries(all_entries)
             except Exception:
                 pass
+
+        from minicode.retrieval.docs_memory_pipeline import DocsMemoryRetrievalPipeline
+        self._docs_memory_pipeline = DocsMemoryRetrievalPipeline(
+            workspace_path=workspace_path,
+            memory_manager=self._memory,
+        )
 
         self._initialized = True
         logger.info(
@@ -261,17 +268,32 @@ class MemoryPipeline:
         # 4. Spreading activation via related_to graph (T3)
         entries = self._spread_activation(entries)
 
-        # 5. Format results
-        return [
+        memory_results = [
             {
                 "id": e.id,
                 "content": e.content,
                 "domain": getattr(e, 'domains', []),
                 "relevance": getattr(e, 'usage_count', 0),
                 "source": "memory_pipeline",
+                "partition": "historical_memory",
             }
             for e in entries[:max_results]
         ]
+        if not self._docs_memory_pipeline:
+            return memory_results
+        docs_results = self._docs_memory_pipeline.retrieve(
+            task_description,
+            active_domains=active_domains,
+            max_results=max_results,
+        )
+        merged = list(docs_results)
+        seen_ids = {item["id"] for item in merged}
+        for item in memory_results:
+            if item["id"] not in seen_ids:
+                seen_ids.add(item["id"])
+                merged.append(item)
+        merged.sort(key=lambda item: item["relevance"], reverse=True)
+        return merged[:max_results]
 
     # ── INJECT: Memory into prompt ──────────────────────────────────
 

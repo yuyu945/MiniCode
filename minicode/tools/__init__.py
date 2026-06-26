@@ -7,6 +7,7 @@ from minicode.tooling import ToolRegistry
 from minicode.tools.ask_user import ask_user_tool
 from minicode.tools.batch_ops import batch_copy_tool, batch_move_tool, batch_delete_tool
 from minicode.tools.code_nav import find_symbols_tool, find_references_tool, get_ast_info_tool
+from minicode.tools.code_retrieve import code_retrieve_tool
 from minicode.tools.code_review import code_review_tool
 from minicode.tools.diff_viewer import diff_viewer_tool
 from minicode.tools.edit_file import edit_file_tool
@@ -33,6 +34,7 @@ _CORE_TOOLS = [
     list_files_tool,
     grep_files_tool,
     read_file_tool,
+    code_retrieve_tool,
     write_file_tool,
     # modify_file_tool removed: identical to write_file (same _run/_validate)
     edit_file_tool,
