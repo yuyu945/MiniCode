@@ -6,13 +6,14 @@ from minicode.skills import discover_skills
 from minicode.tooling import ToolRegistry
 from minicode.tools.ask_user import ask_user_tool
 from minicode.tools.batch_ops import batch_copy_tool, batch_move_tool, batch_delete_tool
+from minicode.tools.code_intel import code_intel_tool
 from minicode.tools.code_nav import find_symbols_tool, find_references_tool, get_ast_info_tool
-from minicode.tools.code_retrieve import code_retrieve_tool
 from minicode.tools.code_review import code_review_tool
 from minicode.tools.diff_viewer import diff_viewer_tool
 from minicode.tools.edit_file import edit_file_tool
 from minicode.tools.file_tree import file_tree_tool
 from minicode.tools.git import git_tool
+from minicode.tools.glob_files import glob_files_tool
 from minicode.tools.grep_files import grep_files_tool
 from minicode.tools.list_files import list_files_tool
 from minicode.tools.load_skill import create_load_skill_tool
@@ -32,9 +33,9 @@ _CORE_TOOLS = [
     ask_user_tool,
     # File operations
     list_files_tool,
+    glob_files_tool,
     grep_files_tool,
     read_file_tool,
-    code_retrieve_tool,
     write_file_tool,
     # modify_file_tool removed: identical to write_file (same _run/_validate)
     edit_file_tool,
@@ -55,6 +56,7 @@ _CORE_TOOLS = [
     # Git workflow
     git_tool,
     # Code intelligence
+    code_intel_tool,
     find_symbols_tool,
     find_references_tool,
     get_ast_info_tool,

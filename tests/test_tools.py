@@ -10,10 +10,12 @@ import minicode.tools.test_runner as test_runner_module
 import minicode.tools.run_command as run_command_module
 from minicode.permissions import PermissionManager
 from minicode.tools.batch_ops import batch_copy_tool, batch_move_tool
+from minicode.tools.code_intel import code_intel_tool
 from minicode.tools.code_nav import find_references_tool, find_symbols_tool, get_ast_info_tool
 from minicode.tools.code_retrieve import code_retrieve_tool
 from minicode.tools.code_review import code_review_tool
 from minicode.tools.file_tree import file_tree_tool
+from minicode.tools.glob_files import glob_files_tool
 from minicode.tools.run_command import _build_execution_command, split_command_line
 from minicode.tools.patch_file import patch_file_tool
 from minicode.tools.archive_utils import tar_extract_tool, zip_extract_tool
@@ -140,9 +142,61 @@ def test_default_tool_registry_is_core_first(tmp_path: Path) -> None:
 
     assert "read_file" in names
     assert "run_command" in names
-    assert "code_retrieve" in names
+    assert "glob_files" in names
+    assert "code_intel" in names
+    assert "code_retrieve" not in names
     assert "base64_encode" not in names
     assert "csv_parse" not in names
+
+
+def test_glob_files_returns_matching_paths(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "src").mkdir()
+    (workspace / "src" / "main.py").write_text("print('hi')\n", encoding="utf-8")
+    (workspace / "src" / "util.ts").write_text("export const x = 1\n", encoding="utf-8")
+    (workspace / "README.md").write_text("# demo\n", encoding="utf-8")
+
+    result = glob_files_tool.run(
+        {"pattern": "*.py", "path": "."},
+        ToolContext(cwd=str(workspace), permissions=None),
+    )
+
+    assert result.ok is True
+    assert "src/main.py" in result.output
+    assert "util.ts" not in result.output
+
+
+def test_code_intel_go_to_definition_and_references(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "auth.py").write_text(
+        "from validator import validate_user\n"
+        "def login(token: str):\n"
+        "    return validate_user(token)\n",
+        encoding="utf-8",
+    )
+    (workspace / "validator.py").write_text(
+        "def validate_user(token: str):\n"
+        "    return token == 'ok'\n",
+        encoding="utf-8",
+    )
+
+    definition = code_intel_tool.run(
+        {"operation": "go_to_definition", "symbol": "validate_user", "path": "."},
+        ToolContext(cwd=str(workspace), permissions=None),
+    )
+    references = code_intel_tool.run(
+        {"operation": "find_references", "symbol": "validate_user", "path": "."},
+        ToolContext(cwd=str(workspace), permissions=None),
+    )
+
+    assert definition.ok is True
+    assert "validator.py" in definition.output
+    assert "validate_user" in definition.output
+    assert references.ok is True
+    assert "auth.py" in references.output
+    assert "validator.py" in references.output
 
 
 def test_full_tool_registry_can_opt_into_utility_wrappers(tmp_path: Path) -> None:
