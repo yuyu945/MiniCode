@@ -58,7 +58,7 @@ def _run(input_data: dict, context) -> ToolResult:
             symbol=input_data.get("symbol"),
             file_path=input_data.get("file_path"),
         )
-        return ToolResult(ok=result.ok, output=result.output)
+        return ToolResult(ok=result.ok, output=f"Backend: {result.backend}\n{result.output}")
     except Exception:
         # Fallback to deterministic local index backend if the external LSP backend
         # is configured but unavailable or protocol-incompatible.
@@ -68,7 +68,7 @@ def _run(input_data: dict, context) -> ToolResult:
             symbol=input_data.get("symbol"),
             file_path=input_data.get("file_path"),
         )
-        return ToolResult(ok=result.ok, output=result.output)
+        return ToolResult(ok=result.ok, output=f"Backend: {result.backend}\n{result.output}")
 
 
 code_intel_tool = ToolDefinition(

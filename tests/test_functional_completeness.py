@@ -37,6 +37,8 @@ class TestStartupAndConfig:
         assert "Configuration Diagnostics" in result
         assert "Status:" in result
         assert "Tool Profile:" in result
+        assert "Python LSP:" in result
+        assert "TypeScript LSP:" in result
 
     def test_logging_system_initialization(self):
         """Test logging system initializes correctly."""

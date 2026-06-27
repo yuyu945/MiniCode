@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 from typing import Any
+import shutil
 
 
 MINI_CODE_DIR = Path.home() / ".mini-code"
@@ -442,6 +443,15 @@ def format_config_diagnostic(cwd: str | Path | None = None) -> str:
         lines.append(f"  Auth: {', '.join(auth_methods) or 'none'}")
         lines.append(f"  MCP Servers: {len(config.get('mcpServers', {}))}")
         lines.append(f"  Tool Profile: {config.get('toolProfile', 'core')}")
+        lsp_diag = get_lsp_diagnostic(cwd)
+        lines.append(
+            f"  Python LSP: {lsp_diag['python']['mode']} "
+            f"(configured={lsp_diag['python']['configured']}, sources={lsp_diag['python']['has_sources']})"
+        )
+        lines.append(
+            f"  TypeScript LSP: {lsp_diag['typescript']['mode']} "
+            f"(configured={lsp_diag['typescript']['configured']}, sources={lsp_diag['typescript']['has_sources']})"
+        )
 
         # User profile info
         global_profile_path = config.get('globalUserProfilePath', '')
@@ -463,5 +473,48 @@ def format_config_diagnostic(cwd: str | Path | None = None) -> str:
         lines.append("  Model: not set")
         lines.append("  Provider: unknown")
         lines.append(f"  Tool Profile: {fallback_tool_profile}")
+        lsp_diag = get_lsp_diagnostic(cwd)
+        lines.append(
+            f"  Python LSP: {lsp_diag['python']['mode']} "
+            f"(configured={lsp_diag['python']['configured']}, sources={lsp_diag['python']['has_sources']})"
+        )
+        lines.append(
+            f"  TypeScript LSP: {lsp_diag['typescript']['mode']} "
+            f"(configured={lsp_diag['typescript']['configured']}, sources={lsp_diag['typescript']['has_sources']})"
+        )
     
     return "\n".join(lines)
+
+
+def get_lsp_diagnostic(cwd: str | Path | None = None) -> dict[str, dict[str, str]]:
+    root = Path(cwd or Path.cwd())
+    python_command = os.environ.get("MINICODE_PYTHON_LSP_COMMAND", "").strip()
+    typescript_command = os.environ.get("MINICODE_TYPESCRIPT_LSP_COMMAND", "").strip()
+    has_python_sources = any(root.rglob("*.py"))
+    has_typescript_sources = any(root.rglob("*.ts")) or any(root.rglob("*.tsx"))
+    return {
+        "python": {
+            "configured": "yes" if python_command else "no",
+            "mode": "external_lsp" if python_command else "index_fallback",
+            "has_sources": "yes" if has_python_sources else "no",
+            "command_available": "yes" if (_command_available(python_command) if python_command else False) else "no",
+        },
+        "typescript": {
+            "configured": "yes" if typescript_command else "no",
+            "mode": "external_lsp" if typescript_command else "index_fallback",
+            "has_sources": "yes" if has_typescript_sources else "no",
+            "command_available": "yes" if (_command_available(typescript_command) if typescript_command else False) else "no",
+        },
+    }
+
+
+def _command_available(raw_command: str) -> bool:
+    if not raw_command:
+        return False
+    try:
+        parsed = json.loads(raw_command)
+        if isinstance(parsed, list) and parsed:
+            return shutil.which(str(parsed[0])) is not None or Path(str(parsed[0])).exists()
+    except Exception:
+        pass
+    return shutil.which(raw_command) is not None or Path(raw_command).exists()

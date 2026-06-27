@@ -58,6 +58,26 @@ python -m compileall -q minicode tests benchmarks
 pytest -q
 ```
 
+## Code Intel Backends
+
+`code_intel` now supports two execution modes:
+
+- `external_lsp`: uses a real stdio language-server process
+- `index_fallback`: uses MiniCode's local symbol/reference index when no language server is configured
+
+Configure external backends with environment variables:
+
+```bash
+# Python example
+export MINICODE_PYTHON_LSP_COMMAND='["pylsp"]'
+
+# TypeScript example
+export MINICODE_TYPESCRIPT_LSP_COMMAND='["typescript-language-server", "--stdio"]'
+```
+
+If no backend is configured, `code_intel` automatically falls back to the local index backend.
+Use `/config` or `format_config_diagnostic()` to inspect the current backend mode.
+
 ## Architecture Notes
 
 - `minicode/agent_loop.py` owns the main model/tool loop
