@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
+from urllib.parse import unquote, urlparse
 
 from minicode.config import load_effective_settings
 from minicode.retrieval.code_index import CodeIndex
@@ -162,7 +164,7 @@ class ExternalLspCodeIntelBackend:
                 return CodeIntelResponse(True, f"No results found for {symbol}", self.backend_name)
 
             text_document = {"uri": location_info["uri"]}
-            self._open_file(_uri_to_path(location_info["uri"]))
+            self._prime_related_files(location_info["uri"], symbol)
             position = location_info["position"]
             range_ = location_info["range"]
             if operation == "hover":
@@ -202,16 +204,26 @@ class ExternalLspCodeIntelBackend:
                 }
 
         definitions = self._index_locator.index.definition_chunks(symbol)
+        references = self._index_locator.index.reference_entries(symbol)
+        if references:
+            reference = references[0]
+            uri = _path_to_uri((self.root / reference.path).resolve())
+            line_number = max(1, reference.line)
+            char = _find_symbol_character((self.root / reference.path).resolve(), line_number, symbol)
+            range_ = {
+                "start": {"line": line_number - 1, "character": char},
+                "end": {"line": line_number - 1, "character": char + len(symbol)},
+            }
+            return {
+                "uri": uri,
+                "range": range_,
+                "position": dict(range_["start"]),
+            }
         if not definitions:
             return None
         chunk = definitions[0]
         uri = _path_to_uri((self.root / chunk.path).resolve())
-        char = 0
-        for line in chunk.content.splitlines()[:1]:
-            idx = line.find(symbol)
-            if idx >= 0:
-                char = idx
-                break
+        char = _find_symbol_character((self.root / chunk.path).resolve(), chunk.start_line, symbol)
         range_ = {
             "start": {"line": max(0, chunk.start_line - 1), "character": char},
             "end": {"line": max(0, chunk.start_line - 1), "character": char + len(symbol)},
@@ -221,6 +233,37 @@ class ExternalLspCodeIntelBackend:
             "range": range_,
             "position": dict(range_["start"]),
         }
+
+    def _prime_related_files(self, symbol_uri: str, symbol: str) -> None:
+        target = _uri_to_path(symbol_uri)
+        related_paths: set[Path] = set()
+        if target.exists():
+            related_paths.add(target)
+            try:
+                rel = target.relative_to(self.root).as_posix()
+            except ValueError:
+                rel = ""
+            if rel:
+                related_paths.update(self._related_workspace_files(rel, symbol))
+        else:
+            for chunk in self._index_locator.index.definition_chunks(symbol):
+                related_paths.add((self.root / chunk.path).resolve())
+                related_paths.update(self._related_workspace_files(chunk.path, symbol))
+        for path in sorted(related_paths):
+            self._open_file(path)
+
+    def _related_workspace_files(self, rel_path: str, symbol: str) -> set[Path]:
+        related = {(self.root / rel_path).resolve()}
+        for imported in self._index_locator.index.import_graph.get(rel_path, set()):
+            related.add((self.root / imported).resolve())
+        for candidate, imported in self._index_locator.index.import_graph.items():
+            if rel_path in imported:
+                related.add((self.root / candidate).resolve())
+        for reference in self._index_locator.index.reference_entries(symbol):
+            related.add((self.root / reference.path).resolve())
+        for definition in self._index_locator.index.definition_chunks(symbol):
+            related.add((self.root / definition.path).resolve())
+        return {path for path in related if path.exists()}
 
     def _start(self) -> None:
         self._proc = subprocess.Popen(
@@ -410,19 +453,19 @@ def _get_lsp_command_value(name: str, root: Path) -> str:
 
 
 def _path_to_uri(path: Path) -> str:
-    normalized = path.resolve().as_posix()
-    if normalized.startswith("/"):
-        return f"file://{normalized}"
-    return f"file:///{normalized}"
+    return path.resolve().as_uri()
 
 
 def _uri_to_display_path(uri: str) -> str:
-    text = uri.replace("file:///", "").replace("file://", "")
-    return Path(text).name if text else uri
+    path = _uri_to_path(uri)
+    return path.name if str(path) else uri
 
 
 def _uri_to_path(uri: str) -> Path:
-    text = uri.replace("file:///", "").replace("file://", "")
+    parsed = urlparse(uri)
+    text = unquote(parsed.path if parsed.scheme else uri.replace("file://", ""))
+    if re.match(r"^/[A-Za-z]:", text):
+        text = text[1:]
     return Path(text)
 
 
@@ -434,6 +477,17 @@ def _language_id_for_path(path: Path) -> str:
     if path.suffix.lower() == ".ts":
         return "typescript"
     return "plaintext"
+
+
+def _find_symbol_character(path: Path, line_number: int, symbol: str) -> int:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return 0
+    if not (1 <= line_number <= len(lines)):
+        return 0
+    idx = lines[line_number - 1].find(symbol)
+    return idx if idx >= 0 else 0
 
 
 def _format_location_list(title: str, result: Any) -> str:

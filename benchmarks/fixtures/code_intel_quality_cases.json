@@ -1,0 +1,30 @@
+[
+  {
+    "case_id": "python-definition",
+    "language": "python",
+    "operation": "go_to_definition",
+    "symbol": "normalize_email",
+    "expected_substrings": ["auth.py"]
+  },
+  {
+    "case_id": "python-workspace",
+    "language": "python",
+    "operation": "workspace_symbol",
+    "symbol": "UserService",
+    "expected_substrings": ["auth.py", "UserService"]
+  },
+  {
+    "case_id": "typescript-definition",
+    "language": "typescript",
+    "operation": "go_to_definition",
+    "symbol": "loadUser",
+    "expected_substrings": ["service.ts"]
+  },
+  {
+    "case_id": "typescript-references",
+    "language": "typescript",
+    "operation": "find_references",
+    "symbol": "loadUser",
+    "expected_substrings": ["consumer.ts:4", "service.ts:10"]
+  }
+]

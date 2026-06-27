@@ -313,8 +313,15 @@ class CodeIndex:
 
 
 def _tokenize(text: str) -> list[str]:
-    text = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", text)
-    return re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", text.lower())
+    raw_tokens = re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", text)
+    tokens: list[str] = []
+    for token in raw_tokens:
+        lower = token.lower()
+        tokens.append(lower)
+        split = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", token)
+        parts = re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", split)
+        tokens.extend(part.lower() for part in parts if part.lower() != lower)
+    return tokens
 
 
 def _python_callable_name(node: ast.AST) -> str | None:
