@@ -488,8 +488,16 @@ def format_config_diagnostic(cwd: str | Path | None = None) -> str:
 
 def get_lsp_diagnostic(cwd: str | Path | None = None) -> dict[str, dict[str, str]]:
     root = Path(cwd or Path.cwd())
-    python_command = os.environ.get("MINICODE_PYTHON_LSP_COMMAND", "").strip()
-    typescript_command = os.environ.get("MINICODE_TYPESCRIPT_LSP_COMMAND", "").strip()
+    effective = load_effective_settings(root)
+    env_section = effective.get("env", {}) if isinstance(effective, dict) else {}
+    python_command = str(
+        os.environ.get("MINICODE_PYTHON_LSP_COMMAND", "").strip()
+        or env_section.get("MINICODE_PYTHON_LSP_COMMAND", "")
+    ).strip()
+    typescript_command = str(
+        os.environ.get("MINICODE_TYPESCRIPT_LSP_COMMAND", "").strip()
+        or env_section.get("MINICODE_TYPESCRIPT_LSP_COMMAND", "")
+    ).strip()
     has_python_sources = any(root.rglob("*.py"))
     has_typescript_sources = any(root.rglob("*.ts")) or any(root.rglob("*.tsx"))
     return {

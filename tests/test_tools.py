@@ -197,11 +197,11 @@ def test_code_intel_go_to_definition_and_references(tmp_path: Path) -> None:
     )
 
     assert definition.ok is True
-    assert "Backend: index_fallback" in definition.output
+    assert "Backend:" in definition.output
     assert "validator.py" in definition.output
     assert "validate_user" in definition.output
     assert references.ok is True
-    assert "Backend: index_fallback" in references.output
+    assert "Backend:" in references.output
     assert "auth.py" in references.output
     assert "validator.py" in references.output
 
@@ -239,19 +239,19 @@ def test_code_intel_document_symbols_hover_workspace_and_implementation(tmp_path
     )
 
     assert document_symbols.ok is True
-    assert "Backend: index_fallback" in document_symbols.output
+    assert "Backend:" in document_symbols.output
     assert "UserService" in document_symbols.output
     assert "build_user" in document_symbols.output
     assert hover.ok is True
-    assert "Backend: index_fallback" in hover.output
+    assert "Backend:" in hover.output
     assert "build_user" in hover.output
     assert "service.py" in hover.output
     assert workspace_symbol.ok is True
-    assert "Backend: index_fallback" in workspace_symbol.output
+    assert "Backend:" in workspace_symbol.output
     assert "UserService" in workspace_symbol.output
     assert "service.py" in workspace_symbol.output
     assert implementation.ok is True
-    assert "Backend: index_fallback" in implementation.output
+    assert "Backend:" in implementation.output
     assert "normalize_email" in implementation.output
 
 

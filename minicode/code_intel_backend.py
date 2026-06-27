@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from minicode.config import load_effective_settings
 from minicode.retrieval.code_index import CodeIndex
 
 
@@ -114,6 +115,7 @@ class ExternalLspCodeIntelBackend:
         self.command = command
         self._proc: subprocess.Popen | None = None
         self._next_id = 1
+        self._index_locator = IndexCodeIntelBackend(root)
 
     def run(self, operation: str, symbol: str | None = None, file_path: str | None = None) -> CodeIntelResponse:
         with self._session():
@@ -127,27 +129,26 @@ class ExternalLspCodeIntelBackend:
                 return CodeIntelResponse(True, _format_document_symbols(file_path, result), "external_lsp")
 
             assert symbol is not None
-            symbols = self._request("workspace/symbol", {"query": symbol}) or []
-            if not symbols:
-                return CodeIntelResponse(True, f"No results found for {symbol}", "external_lsp")
-            first = symbols[0]
-            location = first.get("location") or {}
-            uri = location.get("uri")
-            range_ = location.get("range") or {}
-            start = (range_.get("start") or {})
-            if not uri:
-                return CodeIntelResponse(True, f"No results found for {symbol}", "external_lsp")
-            text_document = {"uri": uri}
-            position = {
-                "line": int(start.get("line", 0)),
-                "character": int(start.get("character", 0)),
-            }
+            symbols: list[dict[str, Any]] = []
+            try:
+                symbols = self._request("workspace/symbol", {"query": symbol}) or []
+            except Exception:
+                symbols = []
 
+            location_info = self._resolve_symbol_location(symbol, symbols)
             if operation == "workspace_symbol":
-                return CodeIntelResponse(True, _format_workspace_symbols(symbol, symbols), "external_lsp")
+                if symbols:
+                    return CodeIntelResponse(True, _format_workspace_symbols(symbol, symbols), "external_lsp")
+                return self._index_locator.run("workspace_symbol", symbol=symbol)
+            if location_info is None:
+                return CodeIntelResponse(True, f"No results found for {symbol}", "external_lsp")
+
+            text_document = {"uri": location_info["uri"]}
+            position = location_info["position"]
+            range_ = location_info["range"]
             if operation == "hover":
                 result = self._request("textDocument/hover", {"textDocument": text_document, "position": position})
-                return CodeIntelResponse(True, _format_hover(symbol, uri, range_, result), "external_lsp")
+                return CodeIntelResponse(True, _format_hover(symbol, location_info["uri"], range_, result), "external_lsp")
             if operation == "find_references":
                 result = self._request(
                     "textDocument/references",
@@ -159,6 +160,48 @@ class ExternalLspCodeIntelBackend:
                 return CodeIntelResponse(True, _format_location_list(f"Implementations for {symbol}:", result), "external_lsp")
             result = self._request("textDocument/definition", {"textDocument": text_document, "position": position})
             return CodeIntelResponse(True, _format_location_list(f"Definitions for {symbol}:", result), "external_lsp")
+
+    def _resolve_symbol_location(
+        self,
+        symbol: str,
+        workspace_symbols: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        if workspace_symbols:
+            first = workspace_symbols[0]
+            location = first.get("location") or {}
+            uri = location.get("uri")
+            range_ = location.get("range") or {}
+            start = (range_.get("start") or {})
+            if uri:
+                return {
+                    "uri": uri,
+                    "range": range_,
+                    "position": {
+                        "line": int(start.get("line", 0)),
+                        "character": int(start.get("character", 0)),
+                    },
+                }
+
+        definitions = self._index_locator.index.definition_chunks(symbol)
+        if not definitions:
+            return None
+        chunk = definitions[0]
+        uri = _path_to_uri((self.root / chunk.path).resolve())
+        char = 0
+        for line in chunk.content.splitlines()[:1]:
+            idx = line.find(symbol)
+            if idx >= 0:
+                char = idx
+                break
+        range_ = {
+            "start": {"line": max(0, chunk.start_line - 1), "character": char},
+            "end": {"line": max(0, chunk.start_line - 1), "character": char + len(symbol)},
+        }
+        return {
+            "uri": uri,
+            "range": range_,
+            "position": dict(range_["start"]),
+        }
 
     def _start(self) -> None:
         self._proc = subprocess.Popen(
@@ -276,14 +319,27 @@ def get_lsp_backend_diagnostics(root: Path) -> dict[str, dict[str, str]]:
 def _configured_lsp_command(root: Path, file_path: str | None) -> list[str] | None:
     ext = Path(file_path).suffix.lower() if file_path else ""
     if ext == ".py" or (not ext and any(root.rglob("*.py"))):
-        value = os.environ.get("MINICODE_PYTHON_LSP_COMMAND")
+        value = _get_lsp_command_value("MINICODE_PYTHON_LSP_COMMAND", root)
         if value:
             return json.loads(value)
     if ext in {".ts", ".tsx"} or (not ext and any(root.rglob("*.ts"))):
-        value = os.environ.get("MINICODE_TYPESCRIPT_LSP_COMMAND")
+        value = _get_lsp_command_value("MINICODE_TYPESCRIPT_LSP_COMMAND", root)
         if value:
             return json.loads(value)
     return None
+
+
+def _get_lsp_command_value(name: str, root: Path) -> str:
+    env_value = os.environ.get(name, "").strip()
+    if env_value:
+        return env_value
+    try:
+        effective = load_effective_settings(root)
+        env_section = effective.get("env", {}) if isinstance(effective, dict) else {}
+        value = env_section.get(name, "")
+        return str(value).strip() if value else ""
+    except Exception:
+        return ""
 
 
 def _path_to_uri(path: Path) -> str:
