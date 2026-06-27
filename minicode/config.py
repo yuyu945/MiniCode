@@ -487,7 +487,10 @@ def format_config_diagnostic(cwd: str | Path | None = None) -> str:
 
 
 def get_lsp_diagnostic(cwd: str | Path | None = None) -> dict[str, dict[str, str]]:
+    from minicode.code_intel_backend import get_lsp_backend_diagnostics
+
     root = Path(cwd or Path.cwd())
+    diagnostics = get_lsp_backend_diagnostics(root)
     effective = load_effective_settings(root)
     env_section = effective.get("env", {}) if isinstance(effective, dict) else {}
     python_command = str(
@@ -498,22 +501,9 @@ def get_lsp_diagnostic(cwd: str | Path | None = None) -> dict[str, dict[str, str
         os.environ.get("MINICODE_TYPESCRIPT_LSP_COMMAND", "").strip()
         or env_section.get("MINICODE_TYPESCRIPT_LSP_COMMAND", "")
     ).strip()
-    has_python_sources = any(root.rglob("*.py"))
-    has_typescript_sources = any(root.rglob("*.ts")) or any(root.rglob("*.tsx"))
-    return {
-        "python": {
-            "configured": "yes" if python_command else "no",
-            "mode": "external_lsp" if python_command else "index_fallback",
-            "has_sources": "yes" if has_python_sources else "no",
-            "command_available": "yes" if (_command_available(python_command) if python_command else False) else "no",
-        },
-        "typescript": {
-            "configured": "yes" if typescript_command else "no",
-            "mode": "external_lsp" if typescript_command else "index_fallback",
-            "has_sources": "yes" if has_typescript_sources else "no",
-            "command_available": "yes" if (_command_available(typescript_command) if typescript_command else False) else "no",
-        },
-    }
+    diagnostics["python"]["command_available"] = "yes" if (_command_available(python_command) if python_command else False) else "no"
+    diagnostics["typescript"]["command_available"] = "yes" if (_command_available(typescript_command) if typescript_command else False) else "no"
+    return diagnostics
 
 
 def _command_available(raw_command: str) -> bool:

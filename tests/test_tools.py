@@ -10,6 +10,7 @@ import pytest
 
 import minicode.tools.test_runner as test_runner_module
 import minicode.tools.run_command as run_command_module
+from minicode.code_intel_backend import CodeIntelBackendRegistry, select_code_intel_backend
 from minicode.permissions import PermissionManager
 from minicode.tools.batch_ops import batch_copy_tool, batch_move_tool
 from minicode.tools.code_intel import code_intel_tool
@@ -419,14 +420,190 @@ while True:
     )
 
     assert definition.ok is True
-    assert "Backend: external_lsp" in definition.output
+    assert "Backend: python_external_lsp" in definition.output
     assert "service.py" in definition.output
     assert hover.ok is True
-    assert "Backend: external_lsp" in hover.output
+    assert "Backend: python_external_lsp" in hover.output
     assert "EXTERNAL_LSP_BACKEND" in hover.output
     assert references.ok is True
-    assert "Backend: external_lsp" in references.output
+    assert "Backend: python_external_lsp" in references.output
     assert "service.py" in references.output
+
+
+def test_code_intel_can_use_typescript_external_lsp_backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "service.ts").write_text(
+        "export function buildUser(email: string) {\n"
+        "  return { email };\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    server_script = tmp_path / "fake_ts_lsp_server.py"
+    server_script.write_text(
+        """
+import json
+import sys
+
+uri = None
+
+def read_message():
+    headers = {}
+    while True:
+        line = sys.stdin.buffer.readline()
+        if not line:
+            return None
+        if line in (b"\\r\\n", b"\\n"):
+            break
+        key, value = line.decode("utf-8").split(":", 1)
+        headers[key.strip().lower()] = value.strip()
+    length = int(headers["content-length"])
+    body = sys.stdin.buffer.read(length)
+    return json.loads(body.decode("utf-8"))
+
+def send_message(payload):
+    body = json.dumps(payload).encode("utf-8")
+    sys.stdout.buffer.write(f"Content-Length: {len(body)}\\r\\n\\r\\n".encode("utf-8"))
+    sys.stdout.buffer.write(body)
+    sys.stdout.buffer.flush()
+
+while True:
+    msg = read_message()
+    if msg is None:
+        break
+    method = msg.get("method")
+    if method == "initialize":
+        send_message({"jsonrpc": "2.0", "id": msg["id"], "result": {"capabilities": {}}})
+    elif method in ("initialized", "textDocument/didOpen"):
+        continue
+    elif method == "workspace/symbol":
+        query = msg["params"]["query"]
+        uri = (sys.argv[1]).replace("\\\\", "/")
+        if not uri.startswith("file://"):
+            uri = "file:///" + uri
+        send_message({
+            "jsonrpc": "2.0",
+            "id": msg["id"],
+            "result": [{
+                "name": query,
+                "kind": 12,
+                "location": {
+                    "uri": uri,
+                    "range": {
+                        "start": {"line": 0, "character": 16},
+                        "end": {"line": 0, "character": 25}
+                    }
+                }
+            }]
+        })
+    elif method == "textDocument/hover":
+        send_message({
+            "jsonrpc": "2.0",
+            "id": msg["id"],
+            "result": {"contents": "TS_EXTERNAL_LSP_BACKEND: function buildUser(email: string)"}
+        })
+    elif method == "textDocument/references":
+        send_message({
+            "jsonrpc": "2.0",
+            "id": msg["id"],
+            "result": [{
+                "uri": uri,
+                "range": {
+                    "start": {"line": 0, "character": 16},
+                    "end": {"line": 0, "character": 25}
+                }
+            }]
+        })
+    elif method in ("textDocument/definition", "textDocument/implementation"):
+        send_message({
+            "jsonrpc": "2.0",
+            "id": msg["id"],
+            "result": [{
+                "uri": uri,
+                "range": {
+                    "start": {"line": 0, "character": 16},
+                    "end": {"line": 0, "character": 25}
+                }
+            }]
+        })
+    elif method == "textDocument/documentSymbol":
+        send_message({
+            "jsonrpc": "2.0",
+            "id": msg["id"],
+            "result": [{
+                "name": "buildUser",
+                "kind": 12,
+                "range": {
+                    "start": {"line": 0, "character": 0},
+                    "end": {"line": 2, "character": 1}
+                },
+                "selectionRange": {
+                    "start": {"line": 0, "character": 16},
+                    "end": {"line": 0, "character": 25}
+                }
+            }]
+        })
+    elif method == "shutdown":
+        send_message({"jsonrpc": "2.0", "id": msg["id"], "result": None})
+        break
+    elif method == "exit":
+        break
+""".strip(),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv(
+        "MINICODE_TYPESCRIPT_LSP_COMMAND",
+        json.dumps([sys.executable, str(server_script), str((workspace / "service.ts").resolve())]),
+    )
+
+    ctx = ToolContext(cwd=str(workspace), permissions=None)
+    definition = code_intel_tool.run(
+        {"operation": "go_to_definition", "symbol": "buildUser", "path": "."},
+        ctx,
+    )
+    hover = code_intel_tool.run(
+        {"operation": "hover", "symbol": "buildUser", "path": "."},
+        ctx,
+    )
+    references = code_intel_tool.run(
+        {"operation": "find_references", "symbol": "buildUser", "path": "."},
+        ctx,
+    )
+
+    assert definition.ok is True
+    assert "Backend: typescript_external_lsp" in definition.output
+    assert "service.ts" in definition.output
+    assert hover.ok is True
+    assert "Backend: typescript_external_lsp" in hover.output
+    assert "TS_EXTERNAL_LSP_BACKEND" in hover.output
+    assert references.ok is True
+    assert "Backend: typescript_external_lsp" in references.output
+    assert "service.ts" in references.output
+
+
+def test_code_intel_backend_registry_routes_by_language_and_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "main.py").write_text("def greet():\n    return 'hi'\n", encoding="utf-8")
+    (workspace / "app.ts").write_text("export function greet() { return 'hi' }\n", encoding="utf-8")
+
+    monkeypatch.delenv("MINICODE_PYTHON_LSP_COMMAND", raising=False)
+    monkeypatch.delenv("MINICODE_TYPESCRIPT_LSP_COMMAND", raising=False)
+    monkeypatch.setenv("MINICODE_PYTHON_LSP_COMMAND", json.dumps(["python-lsp"]))
+    monkeypatch.setenv("MINICODE_TYPESCRIPT_LSP_COMMAND", json.dumps(["ts-lsp"]))
+
+    registry = CodeIntelBackendRegistry(workspace)
+    python_backend = registry.select(file_path="main.py")
+    typescript_backend = registry.select(file_path="app.ts")
+    fallback_backend = registry.select(file_path="README.md")
+
+    assert python_backend.backend_name == "python_external_lsp"
+    assert typescript_backend.backend_name == "typescript_external_lsp"
+    assert fallback_backend.backend_name == "index_fallback"
+
+    direct = select_code_intel_backend(workspace, "app.ts")
+    assert direct.backend_name == "typescript_external_lsp"
 
 
 def test_full_tool_registry_can_opt_into_utility_wrappers(tmp_path: Path) -> None:

@@ -5,7 +5,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from minicode.config import load_effective_settings
 from minicode.retrieval.code_index import CodeIndex
@@ -18,7 +18,23 @@ class CodeIntelResponse:
     backend: str
 
 
+class CodeIntelBackend(Protocol):
+    backend_name: str
+
+    def run(self, operation: str, symbol: str | None = None, file_path: str | None = None) -> CodeIntelResponse: ...
+
+
+@dataclass(slots=True)
+class BackendRoute:
+    language: str
+    env_var: str
+    extensions: tuple[str, ...]
+    backend_name: str
+
+
 class IndexCodeIntelBackend:
+    backend_name = "index_fallback"
+
     def __init__(self, root: Path) -> None:
         self.root = root
         self.index = CodeIndex().build(root)
@@ -29,7 +45,7 @@ class IndexCodeIntelBackend:
             definitions = self.index.definition_chunks(symbol)
             if not definitions:
                 label = "definitions" if operation == "go_to_definition" else "implementations"
-                return CodeIntelResponse(True, f"No {label} found for {symbol}", "index_fallback")
+                return CodeIntelResponse(True, f"No {label} found for {symbol}", self.backend_name)
             title = "Definitions" if operation == "go_to_definition" else "Implementations"
             lines = [f"{title} for {symbol}:"]
             for chunk in definitions[:20]:
@@ -37,14 +53,14 @@ class IndexCodeIntelBackend:
                     f"{chunk.path}:{chunk.start_line}-{chunk.end_line} "
                     f"{chunk.symbol_kind} {chunk.symbol_name} :: {chunk.signature}"
                 )
-            return CodeIntelResponse(True, "\n".join(lines), "index_fallback")
+            return CodeIntelResponse(True, "\n".join(lines), self.backend_name)
 
         if operation == "find_references":
             assert symbol is not None
             definitions = self.index.definition_chunks(symbol)
             references = self.index.reference_entries(symbol)
             if not definitions and not references:
-                return CodeIntelResponse(True, f"No references found for {symbol}", "index_fallback")
+                return CodeIntelResponse(True, f"No references found for {symbol}", self.backend_name)
             lines = [f"References for {symbol}:"]
             if definitions:
                 lines.append("Definitions:")
@@ -59,13 +75,13 @@ class IndexCodeIntelBackend:
                     lines.append(
                         f"  {ref.path}:{ref.line} {ref.kind} from {ref.source_symbol or '?'}"
                     )
-            return CodeIntelResponse(True, "\n".join(lines), "index_fallback")
+            return CodeIntelResponse(True, "\n".join(lines), self.backend_name)
 
         if operation == "hover":
             assert symbol is not None
             definitions = self.index.definition_chunks(symbol)
             if not definitions:
-                return CodeIntelResponse(True, f"No hover information found for {symbol}", "index_fallback")
+                return CodeIntelResponse(True, f"No hover information found for {symbol}", self.backend_name)
             chunk = definitions[0]
             snippet = "\n".join(chunk.content.splitlines()[:8]).strip()
             lines = [
@@ -76,7 +92,7 @@ class IndexCodeIntelBackend:
             ]
             if snippet:
                 lines.extend(["", snippet])
-            return CodeIntelResponse(True, "\n".join(lines), "index_fallback")
+            return CodeIntelResponse(True, "\n".join(lines), self.backend_name)
 
         if operation == "workspace_symbol":
             assert symbol is not None
@@ -86,33 +102,34 @@ class IndexCodeIntelBackend:
                 if chunk.symbol_kind != "file" and query in chunk.symbol_name.lower()
             ]
             if not matches:
-                return CodeIntelResponse(True, f"No workspace symbols found for {symbol}", "index_fallback")
+                return CodeIntelResponse(True, f"No workspace symbols found for {symbol}", self.backend_name)
             lines = [f"Workspace symbols for {symbol}:"]
             for chunk in matches[:50]:
                 lines.append(
                     f"{chunk.path}:{chunk.start_line}-{chunk.end_line} "
                     f"{chunk.symbol_kind} {chunk.symbol_name}"
                 )
-            return CodeIntelResponse(True, "\n".join(lines), "index_fallback")
+            return CodeIntelResponse(True, "\n".join(lines), self.backend_name)
 
         assert file_path is not None
         target = (self.root / file_path).resolve()
         if not target.exists():
-            return CodeIntelResponse(False, f"File not found: {file_path}", "index_fallback")
+            return CodeIntelResponse(False, f"File not found: {file_path}", self.backend_name)
         rel = target.relative_to(self.root).as_posix()
         chunks = [chunk for chunk in self.index.chunks_by_path.get(rel, []) if chunk.symbol_kind != "file"]
         if not chunks:
-            return CodeIntelResponse(True, f"No symbols found in {rel}", "index_fallback")
+            return CodeIntelResponse(True, f"No symbols found in {rel}", self.backend_name)
         lines = [f"Document symbols for {rel}:"]
         for chunk in chunks[:100]:
             lines.append(f"{chunk.start_line}-{chunk.end_line} {chunk.symbol_kind} {chunk.symbol_name}")
-        return CodeIntelResponse(True, "\n".join(lines), "index_fallback")
+        return CodeIntelResponse(True, "\n".join(lines), self.backend_name)
 
 
 class ExternalLspCodeIntelBackend:
-    def __init__(self, root: Path, command: list[str]) -> None:
+    def __init__(self, root: Path, command: list[str], backend_name: str) -> None:
         self.root = root
         self.command = command
+        self.backend_name = backend_name
         self._proc: subprocess.Popen | None = None
         self._next_id = 1
         self._index_locator = IndexCodeIntelBackend(root)
@@ -122,11 +139,12 @@ class ExternalLspCodeIntelBackend:
             if operation == "document_symbols":
                 assert file_path is not None
                 target = (self.root / file_path).resolve()
+                self._open_file(target)
                 result = self._request(
                     "textDocument/documentSymbol",
                     {"textDocument": {"uri": _path_to_uri(target)}},
                 )
-                return CodeIntelResponse(True, _format_document_symbols(file_path, result), "external_lsp")
+                return CodeIntelResponse(True, _format_document_symbols(file_path, result), self.backend_name)
 
             assert symbol is not None
             symbols: list[dict[str, Any]] = []
@@ -138,28 +156,29 @@ class ExternalLspCodeIntelBackend:
             location_info = self._resolve_symbol_location(symbol, symbols)
             if operation == "workspace_symbol":
                 if symbols:
-                    return CodeIntelResponse(True, _format_workspace_symbols(symbol, symbols), "external_lsp")
+                    return CodeIntelResponse(True, _format_workspace_symbols(symbol, symbols), self.backend_name)
                 return self._index_locator.run("workspace_symbol", symbol=symbol)
             if location_info is None:
-                return CodeIntelResponse(True, f"No results found for {symbol}", "external_lsp")
+                return CodeIntelResponse(True, f"No results found for {symbol}", self.backend_name)
 
             text_document = {"uri": location_info["uri"]}
+            self._open_file(_uri_to_path(location_info["uri"]))
             position = location_info["position"]
             range_ = location_info["range"]
             if operation == "hover":
                 result = self._request("textDocument/hover", {"textDocument": text_document, "position": position})
-                return CodeIntelResponse(True, _format_hover(symbol, location_info["uri"], range_, result), "external_lsp")
+                return CodeIntelResponse(True, _format_hover(symbol, location_info["uri"], range_, result), self.backend_name)
             if operation == "find_references":
                 result = self._request(
                     "textDocument/references",
                     {"textDocument": text_document, "position": position, "context": {"includeDeclaration": True}},
                 )
-                return CodeIntelResponse(True, _format_location_list(f"References for {symbol}:", result), "external_lsp")
+                return CodeIntelResponse(True, _format_location_list(f"References for {symbol}:", result), self.backend_name)
             if operation == "go_to_implementation":
                 result = self._request("textDocument/implementation", {"textDocument": text_document, "position": position})
-                return CodeIntelResponse(True, _format_location_list(f"Implementations for {symbol}:", result), "external_lsp")
+                return CodeIntelResponse(True, _format_location_list(f"Implementations for {symbol}:", result), self.backend_name)
             result = self._request("textDocument/definition", {"textDocument": text_document, "position": position})
-            return CodeIntelResponse(True, _format_location_list(f"Definitions for {symbol}:", result), "external_lsp")
+            return CodeIntelResponse(True, _format_location_list(f"Definitions for {symbol}:", result), self.backend_name)
 
     def _resolve_symbol_location(
         self,
@@ -255,6 +274,26 @@ class ExternalLspCodeIntelBackend:
     def _notify(self, method: str, params: Any) -> None:
         self._send({"jsonrpc": "2.0", "method": method, "params": params})
 
+    def _open_file(self, path: Path) -> None:
+        if not path.exists():
+            return
+        language_id = _language_id_for_path(path)
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            return
+        self._notify(
+            "textDocument/didOpen",
+            {
+                "textDocument": {
+                    "uri": _path_to_uri(path),
+                    "languageId": language_id,
+                    "version": 1,
+                    "text": text,
+                }
+            },
+        )
+
     def _request(self, method: str, params: Any) -> Any:
         request_id = self._next_id
         self._next_id += 1
@@ -290,43 +329,71 @@ class ExternalLspCodeIntelBackend:
         return json.loads(body.decode("utf-8"))
 
 
-def select_code_intel_backend(root: Path, file_path: str | None = None) -> IndexCodeIntelBackend | ExternalLspCodeIntelBackend:
-    command = _configured_lsp_command(root, file_path)
-    if command:
-        return ExternalLspCodeIntelBackend(root, command)
-    return IndexCodeIntelBackend(root)
+class CodeIntelBackendRegistry:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self._fallback = IndexCodeIntelBackend(root)
+        self._routes = [
+            BackendRoute(
+                language="python",
+                env_var="MINICODE_PYTHON_LSP_COMMAND",
+                extensions=(".py",),
+                backend_name="python_external_lsp",
+            ),
+            BackendRoute(
+                language="typescript",
+                env_var="MINICODE_TYPESCRIPT_LSP_COMMAND",
+                extensions=(".ts", ".tsx"),
+                backend_name="typescript_external_lsp",
+            ),
+        ]
+
+    @property
+    def fallback(self) -> IndexCodeIntelBackend:
+        return self._fallback
+
+    def select(self, file_path: str | None = None) -> CodeIntelBackend:
+        route = self._select_route(file_path)
+        if route is None:
+            return self._fallback
+        value = _get_lsp_command_value(route.env_var, self.root)
+        if not value:
+            return self._fallback
+        return ExternalLspCodeIntelBackend(self.root, json.loads(value), route.backend_name)
+
+    def diagnostics(self) -> dict[str, dict[str, str]]:
+        data: dict[str, dict[str, str]] = {}
+        for route in self._routes:
+            value = _get_lsp_command_value(route.env_var, self.root)
+            data[route.language] = {
+                "configured": "yes" if value else "no",
+                "mode": route.backend_name if value else self._fallback.backend_name,
+                "has_sources": "yes" if any(any(self.root.rglob(f"*{ext}")) for ext in route.extensions) else "no",
+            }
+        return data
+
+    def _select_route(self, file_path: str | None) -> BackendRoute | None:
+        ext = Path(file_path).suffix.lower() if file_path else ""
+        if ext:
+            for route in self._routes:
+                if ext in route.extensions:
+                    return route
+            return None
+
+        for route in self._routes:
+            if any(any(self.root.rglob(f"*{suffix}")) for suffix in route.extensions):
+                value = _get_lsp_command_value(route.env_var, self.root)
+                if value:
+                    return route
+        return None
+
+
+def select_code_intel_backend(root: Path, file_path: str | None = None) -> CodeIntelBackend:
+    return CodeIntelBackendRegistry(root).select(file_path)
 
 
 def get_lsp_backend_diagnostics(root: Path) -> dict[str, dict[str, str]]:
-    python_command = os.environ.get("MINICODE_PYTHON_LSP_COMMAND", "").strip()
-    typescript_command = os.environ.get("MINICODE_TYPESCRIPT_LSP_COMMAND", "").strip()
-    has_python_sources = any(root.rglob("*.py"))
-    has_typescript_sources = any(root.rglob("*.ts")) or any(root.rglob("*.tsx"))
-    return {
-        "python": {
-            "configured": "yes" if python_command else "no",
-            "mode": "external_lsp" if python_command else "index_fallback",
-            "has_sources": "yes" if has_python_sources else "no",
-        },
-        "typescript": {
-            "configured": "yes" if typescript_command else "no",
-            "mode": "external_lsp" if typescript_command else "index_fallback",
-            "has_sources": "yes" if has_typescript_sources else "no",
-        },
-    }
-
-
-def _configured_lsp_command(root: Path, file_path: str | None) -> list[str] | None:
-    ext = Path(file_path).suffix.lower() if file_path else ""
-    if ext == ".py" or (not ext and any(root.rglob("*.py"))):
-        value = _get_lsp_command_value("MINICODE_PYTHON_LSP_COMMAND", root)
-        if value:
-            return json.loads(value)
-    if ext in {".ts", ".tsx"} or (not ext and any(root.rglob("*.ts"))):
-        value = _get_lsp_command_value("MINICODE_TYPESCRIPT_LSP_COMMAND", root)
-        if value:
-            return json.loads(value)
-    return None
+    return CodeIntelBackendRegistry(root).diagnostics()
 
 
 def _get_lsp_command_value(name: str, root: Path) -> str:
@@ -352,6 +419,21 @@ def _path_to_uri(path: Path) -> str:
 def _uri_to_display_path(uri: str) -> str:
     text = uri.replace("file:///", "").replace("file://", "")
     return Path(text).name if text else uri
+
+
+def _uri_to_path(uri: str) -> Path:
+    text = uri.replace("file:///", "").replace("file://", "")
+    return Path(text)
+
+
+def _language_id_for_path(path: Path) -> str:
+    if path.suffix.lower() == ".py":
+        return "python"
+    if path.suffix.lower() == ".tsx":
+        return "typescriptreact"
+    if path.suffix.lower() == ".ts":
+        return "typescript"
+    return "plaintext"
 
 
 def _format_location_list(title: str, result: Any) -> str:
