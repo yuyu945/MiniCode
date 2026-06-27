@@ -32,6 +32,11 @@ def print_benchmark_report(metrics: dict, workspace: Path, fixture_path: Path, o
         print(f"  Cases:     {language_summary['case_count']}")
         print(f"  Passed:    {language_summary['pass_count']}")
         print(f"  Pass Rate: {language_summary['pass_rate']:.2%}")
+    for scenario, scenario_summary in sorted(metrics["scenario_summary"].items()):
+        print(f"[scenario:{scenario}]")
+        print(f"  Cases:     {scenario_summary['case_count']}")
+        print(f"  Passed:    {scenario_summary['pass_count']}")
+        print(f"  Pass Rate: {scenario_summary['pass_rate']:.2%}")
     for backend, backend_summary in sorted(metrics["backend_summary"].items()):
         print(f"[backend:{backend}]")
         print(f"  Cases:     {backend_summary['case_count']}")

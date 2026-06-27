@@ -38,5 +38,8 @@ jobs:
       - name: Run packaging smoke tests
         run: python -m pytest tests/test_packaging.py -q
 
+      - name: Run code_intel quality benchmark
+        run: python benchmarks/code_intel_quality_benchmark.py
+
       - name: Run test suite
         run: python -m pytest -q

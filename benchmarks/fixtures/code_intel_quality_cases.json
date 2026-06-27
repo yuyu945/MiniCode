@@ -1,6 +1,7 @@
 [
   {
     "case_id": "python-definition",
+    "scenario_type": "multiple_definitions",
     "language": "python",
     "operation": "go_to_definition",
     "symbol": "normalize_email",
@@ -8,13 +9,17 @@
   },
   {
     "case_id": "python-workspace",
+    "scenario_type": "workspace_symbol_ambiguity",
     "language": "python",
     "operation": "workspace_symbol",
     "symbol": "UserService",
-    "expected_substrings": ["auth.py", "UserService"]
+    "expected_substrings": ["auth.py", "UserService"],
+    "expected_ordered_substrings": ["auth.py", "search.py"],
+    "unexpected_substrings": ["missing.py"]
   },
   {
     "case_id": "typescript-definition",
+    "scenario_type": "multiple_definitions",
     "language": "typescript",
     "operation": "go_to_definition",
     "symbol": "loadUser",
@@ -22,9 +27,35 @@
   },
   {
     "case_id": "typescript-references",
+    "scenario_type": "inheritance_chain",
     "language": "typescript",
     "operation": "find_references",
     "symbol": "loadUser",
     "expected_substrings": ["consumer.ts:4", "service.ts:10"]
+  },
+  {
+    "case_id": "tsx-document-symbols",
+    "scenario_type": "tsx_symbol_surface",
+    "language": "typescript",
+    "operation": "document_symbols",
+    "file_path": "dashboard.tsx",
+    "expected_substrings": ["DashboardPanel", "useDashboardState", "DashboardProps"]
+  },
+  {
+    "case_id": "python-inheritance-references",
+    "scenario_type": "inheritance_chain",
+    "language": "python",
+    "operation": "find_references",
+    "symbol": "normalize_record",
+    "expected_substrings": ["handlers.py", "CustomerImportHandler"]
+  },
+  {
+    "case_id": "workspace-symbol-search-service",
+    "scenario_type": "workspace_symbol_ambiguity",
+    "language": "python",
+    "operation": "workspace_symbol",
+    "symbol": "SearchService",
+    "expected_substrings": ["search.py", "search_legacy.py", "SearchService"],
+    "expected_ordered_substrings": ["search.py", "search_legacy.py"]
   }
 ]

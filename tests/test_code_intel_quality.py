@@ -251,3 +251,83 @@ def test_code_intel_benchmark_reports_language_and_backend_quality(tmp_path: Pat
     assert {"python", "typescript"} <= set(metrics["language_summary"])
     assert {"go_to_definition", "find_references"} <= set(metrics["operation_summary"])
     assert 0.0 <= metrics["summary"]["pass_rate"] <= 1.0
+
+
+def test_code_intel_benchmark_groups_cases_by_scenario_type(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "service.py").write_text(
+        "class UserService:\n"
+        "    def normalize_email(self, value: str) -> str:\n"
+        "        return value.strip().lower()\n",
+        encoding="utf-8",
+    )
+    fixture_path = tmp_path / "code_intel_cases.json"
+    fixture_path.write_text(
+        json.dumps(
+            [
+                {
+                    "case_id": "workspace-ambiguity",
+                    "scenario_type": "workspace_symbol_ambiguity",
+                    "language": "python",
+                    "operation": "workspace_symbol",
+                    "symbol": "UserService",
+                    "expected_substrings": ["UserService"],
+                },
+                {
+                    "case_id": "method-definition",
+                    "scenario_type": "multiple_definitions",
+                    "language": "python",
+                    "operation": "go_to_definition",
+                    "symbol": "normalize_email",
+                    "expected_substrings": ["service.py"],
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    metrics = benchmark_code_intel(workspace, fixture_path)
+
+    assert "scenario_summary" in metrics
+    assert {"workspace_symbol_ambiguity", "multiple_definitions"} <= set(metrics["scenario_summary"])
+    assert metrics["scenario_summary"]["workspace_symbol_ambiguity"]["case_count"] == 1
+
+
+def test_code_intel_benchmark_supports_absent_and_ordered_expectations(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "alpha.py").write_text("class SearchService:\n    pass\n", encoding="utf-8")
+    (workspace / "beta.py").write_text("class SearchServiceLegacy:\n    pass\n", encoding="utf-8")
+    fixture_path = tmp_path / "code_intel_cases.json"
+    fixture_path.write_text(
+        json.dumps(
+            [
+                {
+                    "case_id": "workspace-ordering",
+                    "scenario_type": "workspace_symbol_ambiguity",
+                    "language": "python",
+                    "operation": "workspace_symbol",
+                    "symbol": "SearchService",
+                    "expected_substrings": ["SearchService"],
+                    "expected_ordered_substrings": ["alpha.py", "beta.py"],
+                    "unexpected_substrings": ["gamma.py"],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    metrics = benchmark_code_intel(workspace, fixture_path)
+
+    assert metrics["summary"]["case_count"] == 1
+    assert metrics["cases"][0]["passed"] is True
+    assert metrics["cases"][0]["assertion_counts"]["ordered"] == 2
+    assert metrics["cases"][0]["assertion_counts"]["unexpected"] == 1
+
+
+def test_ci_workflow_runs_code_intel_quality_benchmark() -> None:
+    workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "Run code_intel quality benchmark" in workflow
+    assert "python benchmarks/code_intel_quality_benchmark.py" in workflow

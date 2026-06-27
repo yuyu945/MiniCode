@@ -175,7 +175,11 @@ class ExternalLspCodeIntelBackend:
                     "textDocument/references",
                     {"textDocument": text_document, "position": position, "context": {"includeDeclaration": True}},
                 )
-                return CodeIntelResponse(True, _format_location_list(f"References for {symbol}:", result), self.backend_name)
+                return CodeIntelResponse(
+                    True,
+                    self._format_references(symbol, result),
+                    self.backend_name,
+                )
             if operation == "go_to_implementation":
                 result = self._request("textDocument/implementation", {"textDocument": text_document, "position": position})
                 return CodeIntelResponse(True, _format_location_list(f"Implementations for {symbol}:", result), self.backend_name)
@@ -264,6 +268,56 @@ class ExternalLspCodeIntelBackend:
         for definition in self._index_locator.index.definition_chunks(symbol):
             related.add((self.root / definition.path).resolve())
         return {path for path in related if path.exists()}
+
+    def _format_references(self, symbol: str, result: Any) -> str:
+        items = result if isinstance(result, list) else ([result] if result else [])
+        if not items:
+            return f"References for {symbol}:\nNo results found"
+        ref_map = {}
+        for reference in self._index_locator.index.reference_entries(symbol):
+            ref_map[(reference.path, reference.line)] = self._reference_label(reference.path, reference.line, reference.source_symbol)
+        lines = [f"References for {symbol}:"]
+        for item in items[:50]:
+            uri = item.get("uri") or item.get("targetUri")
+            range_ = item.get("range") or item.get("targetRange") or {}
+            start = (range_.get("start") or {})
+            end = (range_.get("end") or {})
+            path = _uri_to_path(uri)
+            rel_path = _relative_display_path(self.root, path)
+            line_number = int(start.get("line", 0)) + 1
+            source_symbol = ref_map.get((rel_path, line_number))
+            suffix = f" :: {source_symbol}" if source_symbol else ""
+            lines.append(
+                f"{Path(rel_path).name}:{line_number}-{int(end.get('line', 0)) + 1}{suffix}"
+            )
+        return "\n".join(lines)
+
+    def _reference_label(self, rel_path: str, line_number: int, source_symbol: str) -> str:
+        chunks = self._index_locator.index.chunks_by_path.get(rel_path, [])
+        method_chunk = next(
+            (
+                chunk
+                for chunk in chunks
+                if chunk.symbol_name == source_symbol
+                and chunk.symbol_kind in {"method", "function"}
+                and chunk.start_line <= line_number <= chunk.end_line
+            ),
+            None,
+        )
+        if method_chunk is None:
+            return source_symbol
+        owner = next(
+            (
+                chunk.symbol_name
+                for chunk in chunks
+                if chunk.symbol_kind == "class"
+                and chunk.start_line <= method_chunk.start_line <= chunk.end_line
+            ),
+            None,
+        )
+        if owner and method_chunk.symbol_kind == "method":
+            return f"{owner}.{source_symbol}"
+        return source_symbol
 
     def _start(self) -> None:
         self._proc = subprocess.Popen(
@@ -459,6 +513,13 @@ def _path_to_uri(path: Path) -> str:
 def _uri_to_display_path(uri: str) -> str:
     path = _uri_to_path(uri)
     return path.name if str(path) else uri
+
+
+def _relative_display_path(root: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return path.name
 
 
 def _uri_to_path(uri: str) -> Path:

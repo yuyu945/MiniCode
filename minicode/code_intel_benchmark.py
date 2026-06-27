@@ -24,15 +24,30 @@ def benchmark_code_intel(
         backend = select_code_intel_backend(workspace, file_path or _guess_file_path(workspace, str(case.get("language", ""))))
         result = backend.run(operation, symbol=symbol, file_path=file_path)
         expected_substrings = [str(item) for item in case.get("expected_substrings", [])]
-        passed = all(fragment in result.output for fragment in expected_substrings)
+        expected_ordered = [str(item) for item in case.get("expected_ordered_substrings", [])]
+        unexpected_substrings = [str(item) for item in case.get("unexpected_substrings", [])]
+        passed = _matches_expectations(
+            result.output,
+            expected_substrings=expected_substrings,
+            expected_ordered=expected_ordered,
+            unexpected_substrings=unexpected_substrings,
+        )
         case_results.append(
             {
                 "case_id": case.get("case_id"),
+                "scenario_type": str(case.get("scenario_type", "general")),
                 "language": str(case.get("language", "unknown")),
                 "operation": operation,
                 "backend": result.backend,
                 "passed": passed,
                 "expected_substrings": expected_substrings,
+                "expected_ordered_substrings": expected_ordered,
+                "unexpected_substrings": unexpected_substrings,
+                "assertion_counts": {
+                    "contains": len(expected_substrings),
+                    "ordered": len(expected_ordered),
+                    "unexpected": len(unexpected_substrings),
+                },
                 "output": result.output,
             }
         )
@@ -41,6 +56,7 @@ def benchmark_code_intel(
         "workspace": str(workspace),
         "fixture_path": str(fixture_path),
         "summary": _summarize(case_results),
+        "scenario_summary": _group_summary(case_results, "scenario_type"),
         "language_summary": _group_summary(case_results, "language"),
         "operation_summary": _group_summary(case_results, "operation"),
         "backend_summary": _group_summary(case_results, "backend"),
@@ -66,6 +82,26 @@ def _group_summary(case_results: list[dict[str, Any]], key: str) -> dict[str, di
         value: _summarize([case for case in case_results if str(case.get(key, "unknown")) == value])
         for value in values
     }
+
+
+def _matches_expectations(
+    output: str,
+    *,
+    expected_substrings: list[str],
+    expected_ordered: list[str],
+    unexpected_substrings: list[str],
+) -> bool:
+    if not all(fragment in output for fragment in expected_substrings):
+        return False
+    cursor = 0
+    for fragment in expected_ordered:
+        idx = output.find(fragment, cursor)
+        if idx < 0:
+            return False
+        cursor = idx + len(fragment)
+    if any(fragment in output for fragment in unexpected_substrings):
+        return False
+    return True
 
 
 def _summarize(case_results: list[dict[str, Any]]) -> dict[str, Any]:
