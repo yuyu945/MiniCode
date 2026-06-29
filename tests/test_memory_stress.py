@@ -201,7 +201,7 @@ class TestMemoryStressPipeline:
     """Full pipeline stress: rapid read/write/maintain cycles."""
 
     def test_rapid_pipeline_cycles(self):
-        from minicode.memory_pipeline import MemoryPipeline
+        from minicode.memory_system.pipeline import MemoryPipeline
 
         with tempfile.TemporaryDirectory() as tmp:
             mgr = MemoryManager(project_root=tmp)

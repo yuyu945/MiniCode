@@ -9,14 +9,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from minicode.agent_metrics import (
+from minicode.agent.metrics import (
     AgentMetricsCollector,
     AgentTurnMetrics,
     ErrorCategory,
     ToolExecutionRecord,
     ToolHistoricalStats,
 )
-from minicode.agent_intelligence import (
+from minicode.agent.intelligence import (
     ClassifiedError,
     ErrorCategory as AIErrorCategory,
     ErrorClassifier,
@@ -26,7 +26,7 @@ from minicode.agent_intelligence import (
     ToolSchedulerController,
     ToolSchedulingSignal,
 )
-from minicode.memory_injector import (
+from minicode.memory_system.injector import (
     InjectedMemory,
     MemoryInjectionController,
     MemoryInjectionMode,

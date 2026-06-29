@@ -24,7 +24,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from minicode.agent_loop import run_agent_turn
-from minicode.mock_model import MockModelAdapter
+from minicode.models.mock import MockModelAdapter
 from minicode.permissions import PermissionManager
 from minicode.tooling import ToolContext, ToolRegistry, ToolDefinition, ToolResult
 from minicode.tools import create_default_tool_registry
@@ -719,7 +719,7 @@ class TestLiveAPI:
 
     def test_simple_question(self, tools, tmp_workspace, auto_allow_permissions):
         """Send a simple question to the real API and verify response."""
-        from minicode.anthropic_adapter import AnthropicModelAdapter
+        from minicode.models.anthropic import AnthropicModelAdapter
 
         runtime = {
             "model": os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514"),
@@ -750,7 +750,7 @@ class TestLiveAPI:
 
     def test_tool_use_via_api(self, tools, tmp_workspace, auto_allow_permissions):
         """Real API triggers tool use (list_files) and processes result."""
-        from minicode.anthropic_adapter import AnthropicModelAdapter
+        from minicode.models.anthropic import AnthropicModelAdapter
 
         runtime = {
             "model": os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514"),

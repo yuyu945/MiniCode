@@ -537,14 +537,14 @@ def create_model_adapter(
     # Provider 选择集中在这里，agent_loop 只依赖 ModelAdapter.next()。
     # 新 provider 应优先扩展 registry + adapter，而不是把 API 分支写进主循环。
     if force_mock or os.environ.get("MINI_CODE_MODEL_MODE") == "mock":
-        from minicode.mock_model import MockModelAdapter
+        from minicode.models.mock import MockModelAdapter
         return MockModelAdapter()
 
     provider_config = build_provider_config(model, runtime)
 
     # OpenRouter / Custom / OpenAI all use OpenAI-compatible API
     if provider_config.is_openai_compatible:
-        from minicode.openai_adapter import OpenAIModelAdapter
+        from minicode.models.openai import OpenAIModelAdapter
         # Inject provider config into runtime so the adapter can use it
         enriched_runtime = dict(runtime or {})
         enriched_runtime["model"] = provider_config.model
@@ -563,7 +563,7 @@ def create_model_adapter(
         return OpenAIModelAdapter(enriched_runtime, tools)
 
     # Anthropic
-    from minicode.anthropic_adapter import AnthropicModelAdapter
+    from minicode.models.anthropic import AnthropicModelAdapter
     enriched = dict(runtime or {})
     if "model" not in enriched:
         enriched["model"] = model

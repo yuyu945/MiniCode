@@ -1,4 +1,4 @@
-from minicode.cli_commands import find_matching_slash_commands, format_slash_commands, try_handle_local_command
+from minicode.app.cli_commands import find_matching_slash_commands, format_slash_commands, try_handle_local_command
 from minicode.local_tool_shortcuts import parse_local_tool_shortcut
 
 

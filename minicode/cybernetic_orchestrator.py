@@ -32,9 +32,9 @@ import time
 from typing import Any
 
 from minicode.adaptive_pid_tuner import AdaptivePIDTuner
-from minicode.agent_intelligence import ToolScheduler
-from minicode.context_compactor import ContextCompactor
-from minicode.context_cybernetics import ContextCyberneticsOrchestrator
+from minicode.agent.intelligence import ToolScheduler
+from minicode.context.compactor import ContextCompactor
+from minicode.context.cybernetics import ContextCyberneticsOrchestrator
 from minicode.cost_control import CostControlLoop
 from minicode.cybernetic_supervisor import CyberneticSupervisor, save_supervisor_report
 from minicode.decoupling_controller import DecouplingController
@@ -42,7 +42,7 @@ from minicode.feedback_controller import FeedbackController
 from minicode.feedforward_controller import FeedforwardController
 from minicode.logging_config import get_logger
 from minicode.memory import MemoryManager
-from minicode.memory_injector import (
+from minicode.memory_system.injector import (
     MemoryInjectionController,
 )
 from minicode.model_registry import ModelSelectionController, ModelSelectionSignal
@@ -128,8 +128,8 @@ class CyberneticOrchestrator:
         self.model_ctrl = ModelSelectionController()
 
         # Import-heavy modules (lazy to avoid circular imports)
-        from minicode.agent_reflection import ReflectionEngine
-        from minicode.model_switcher import ModelSwitcher
+        from minicode.agent.reflection import ReflectionEngine
+        from minicode.models.switcher import ModelSwitcher
         from minicode.smart_router import SmartRouter
 
         self.smart_router = SmartRouter()
@@ -148,7 +148,7 @@ class CyberneticOrchestrator:
         context_usage: float = 0.0,
     ) -> None:
         """Initialize unified memory pipeline."""
-        from minicode.memory_pipeline import MemoryPipeline
+        from minicode.memory_system.pipeline import MemoryPipeline
 
         self.memory_pipeline = MemoryPipeline(memory_mgr)
         # Pass model adapter if available for reranker

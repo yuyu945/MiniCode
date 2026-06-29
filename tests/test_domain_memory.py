@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 
-from minicode.agent_reflection import ReflectionEngine, ReflectionResult
+from minicode.agent.reflection import ReflectionEngine, ReflectionResult
 from minicode.domain_classifier import (
     DomainType,
     classify,

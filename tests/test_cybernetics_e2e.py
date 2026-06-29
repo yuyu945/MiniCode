@@ -10,8 +10,8 @@ from __future__ import annotations
 import time
 
 from minicode.adaptive_pid_tuner import AdaptivePIDTuner
-from minicode.context_cybernetics import ContextCyberneticsOrchestrator
-from minicode.context_compactor import ContextCompactor, AutoCompactConfig
+from minicode.context.cybernetics import ContextCyberneticsOrchestrator
+from minicode.context.compactor import ContextCompactor, AutoCompactConfig
 from minicode.cost_control import CostControlLoop
 from minicode.cybernetic_supervisor import CyberneticSupervisor
 from minicode.feedback_controller import (
@@ -35,7 +35,7 @@ class TestTunerToPIDChain:
 
     def test_tuner_params_can_be_applied(self):
         tuner = AdaptivePIDTuner()
-        from minicode.context_cybernetics import ContextPIDController
+        from minicode.context.cybernetics import ContextPIDController
         pid = ContextPIDController()
         params = tuner.tune(error=0.15, dt=1.0, performance_score=0.6)
         pid.kp = params.kp

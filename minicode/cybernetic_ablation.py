@@ -13,9 +13,9 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from minicode.agent_intelligence import ToolSchedulerController, ToolSchedulingSignal
+from minicode.agent.intelligence import ToolSchedulerController, ToolSchedulingSignal
 from minicode.cybernetic_supervisor import CyberneticSupervisor
-from minicode.memory_injector import MemoryInjectionController, MemoryInjectionSignal
+from minicode.memory_system.injector import MemoryInjectionController, MemoryInjectionSignal
 from minicode.model_registry import ModelSelectionController, ModelSelectionSignal
 from minicode.progress_controller import ProgressController, ProgressSignal
 from minicode.verification_controller import VerificationController, VerificationSignal

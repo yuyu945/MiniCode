@@ -14,7 +14,7 @@ import pytest
 
 from minicode.agent_loop import run_agent_turn
 from minicode.context_manager import ContextManager
-from minicode.mock_model import MockModelAdapter
+from minicode.models.mock import MockModelAdapter
 from minicode.permissions import PermissionManager
 from minicode.tooling import ToolRegistry
 from minicode.tools import create_default_tool_registry

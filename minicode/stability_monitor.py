@@ -20,7 +20,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from minicode.context_cybernetics import ContextCyberneticsOrchestrator
+    from minicode.context.cybernetics import ContextCyberneticsOrchestrator
 
 
 class HealthLevel(Enum):

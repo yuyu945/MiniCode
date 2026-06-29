@@ -14,7 +14,7 @@ import math
 import time
 import pytest
 
-from minicode.context_cybernetics import (
+from minicode.context.cybernetics import (
     AnomalyType,
     ContextCyberneticsOrchestrator,
     ContextPIDController,
@@ -27,7 +27,7 @@ from minicode.context_cybernetics import (
     AdaptiveThresholdManager,
     CompactionStrategySelector,
 )
-from minicode.context_compactor import (
+from minicode.context.compactor import (
     AutoCompactConfig,
     CompactStrategy,
     CompactTrigger,

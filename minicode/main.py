@@ -6,11 +6,11 @@ import os
 from pathlib import Path
 
 from minicode.agent_loop import run_agent_turn
-from minicode.cli_commands import try_handle_local_command
+from minicode.app.cli_commands import try_handle_local_command
 from minicode.config import load_runtime_config
 from minicode.history import load_history_entries, save_history_entries
 from minicode.local_tool_shortcuts import parse_local_tool_shortcut
-from minicode.manage_cli import maybe_handle_management_command
+from minicode.app.manage_cli import maybe_handle_management_command
 from minicode.model_registry import create_model_adapter
 from minicode.permissions import PermissionManager
 from minicode.prompt import build_system_prompt
@@ -166,7 +166,7 @@ def main() -> None:
     
     # Run installer if requested
     if args.install:
-        from minicode.install import main as install_main
+        from minicode.app.install import main as install_main
         install_main()
         return
     
@@ -229,7 +229,7 @@ def main() -> None:
     logger.info("Memory manager initialized")
     
     # Initialize UserProfileManager for user preferences
-    from minicode.user_profile import UserProfileManager
+    from minicode.memory_system.user_profile import UserProfileManager
     profile_manager = UserProfileManager(cwd=cwd)
     profile_manager.load_merged()
     logger.info("User profile manager initialized (global=%s, project=%s)",

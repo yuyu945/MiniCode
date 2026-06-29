@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from minicode.config import MINI_CODE_DIR
 from minicode.context_manager import estimate_tokens, estimate_message_tokens, ContextManager
-from minicode.context_compactor import (
+from minicode.context.compactor import (
     ContextCompactor, AutoCompactConfig, CompactionResult, CompactStrategy,
     ReadDedupManager, ToolResultBudgetManager,
 )

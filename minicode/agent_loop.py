@@ -16,16 +16,16 @@ from minicode.types import AgentStep, ChatMessage, ModelAdapter
 from minicode.hooks import HookEvent, fire_hook_sync
 
 # Intelligence integration
-from minicode.agent_metrics import AgentMetricsCollector
-from minicode.agent_intelligence import ErrorClassifier, NudgeGenerator, ToolScheduler
-from minicode.working_memory import protect_context
+from minicode.agent.metrics import AgentMetricsCollector
+from minicode.agent.intelligence import ErrorClassifier, NudgeGenerator, ToolScheduler
+from minicode.memory_system.working import protect_context
 
 # Work chain integration
 from minicode.intent_parser import parse_intent
 from minicode.task_object import build_task, TaskObject, TaskState
 from minicode.pipeline_engine import get_pipeline_engine
 from minicode.capability_registry import get_registry, CapabilityDomain
-from minicode.layered_context import ContextBuilder, LayeredContext
+from minicode.context.layered import ContextBuilder, LayeredContext
 from minicode.decision_audit import get_auditor, DecisionOutcome
 
 # 工程控制论集成
@@ -41,18 +41,18 @@ from minicode.self_healing_engine import SelfHealingEngine
 from minicode.progress_controller import ProgressSignal, ProgressAction
 
 # 记忆注入和模型选择控制
-from minicode.memory_injector import MemoryInjectionSignal, MemoryInjector
+from minicode.memory_system.injector import MemoryInjectionSignal, MemoryInjector
 from minicode.model_registry import ModelSelectionSignal
 
 # 智能路由与自省 (Phase 3 导入)
 from minicode.smart_router import TaskOutcome
 
 # 上下文管理集成 (Claude Code-style + Engineering Cybernetics)
-from minicode.context_compactor import (
+from minicode.context.compactor import (
     ContextCompactor,
     AutoCompactConfig,
 )
-from minicode.context_cybernetics import ContextCyberneticsOrchestrator
+from minicode.context.cybernetics import ContextCyberneticsOrchestrator
 from minicode.cost_control import CostControlLoop
 from minicode.memory import MemoryManager
 
@@ -675,7 +675,7 @@ def run_agent_turn(
             # 同时创建 Reranker（使用真实 LLM 做记忆策展）
             memory_reranker = None
             try:
-                from minicode.memory_reranker import MemoryReranker
+                from minicode.memory_system.reranker import MemoryReranker
                 # Use the agent's model for reranking (lightweight prompt, ~500 tokens)
                 memory_reranker = MemoryReranker(model_adapter=model)
             except Exception:

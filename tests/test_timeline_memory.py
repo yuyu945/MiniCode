@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from minicode.timeline_memory import (
+from minicode.memory_system.timeline import (
     LatestStateMemory,
     SemanticStateIndex,
     StateReasoner,

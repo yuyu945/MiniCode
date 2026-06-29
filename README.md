@@ -81,9 +81,14 @@ Use `/config` or `format_config_diagnostic()` to inspect the current backend mod
 ## Architecture Notes
 
 - `minicode/agent_loop.py` owns the main model/tool loop
+- `minicode/agent/` holds agent-support modules such as intelligence, metrics, routing, and reflection
+- `minicode/app/` holds CLI-facing helpers such as command handling, install, and management flows
+- `minicode/context/` holds context compaction, layered context, and prompt-pipeline helpers
+- `minicode/memory_system/` holds memory injection, reranking, curation, and working/timeline/vector memory helpers
+- `minicode/models/` holds provider adapters and model switching helpers
 - `minicode/tooling.py` and `minicode/tools/` own the tool contract and execution surface
 - `minicode/tty_app.py` plus `minicode/tui/` own the terminal UI flow
-- `minicode/context_cybernetics.py`, `minicode/memory_pipeline.py`, and related controllers own runtime feedback behavior
+- Root-level compatibility modules such as `minicode/memory_pipeline.py` and `minicode/agent_intelligence.py` re-export their new package locations to preserve existing imports
 - `minicode/code_retrieval.py` owns repository indexing and retrieval benchmarking support
 
 ## Design Principles

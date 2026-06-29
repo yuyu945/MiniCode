@@ -20,7 +20,7 @@ from minicode.cost_control import (
     CostRateSensor,
     SpendingTrend,
 )
-from minicode.context_compactor import (
+from minicode.context.compactor import (
     AutoCompactConfig,
     ContextCompactor,
 )

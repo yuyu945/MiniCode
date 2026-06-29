@@ -294,7 +294,7 @@ class TestHelpSystem:
 
     def test_slash_commands_available(self):
         """Test that all slash commands are available."""
-        from minicode.cli_commands import SLASH_COMMANDS
+        from minicode.app.cli_commands import SLASH_COMMANDS
         command_names = {cmd.name for cmd in SLASH_COMMANDS}
         expected = {"/help", "/tools", "/status", "/config", "/context", "/memory", "/mcp", "/skills", "/exit"}
         assert expected.issubset(command_names)
