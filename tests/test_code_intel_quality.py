@@ -34,6 +34,36 @@ def test_typescript_index_backend_tracks_camel_case_references(tmp_path: Path) -
     assert "buildSession" in result.output
 
 
+def test_typescript_index_backend_document_symbols_include_type_aliases_in_tsx(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "dashboard.tsx").write_text(
+        "type DashboardProps = {\n"
+        "  title: string;\n"
+        "};\n"
+        "\n"
+        "function useDashboardState() {\n"
+        "  return { ready: true };\n"
+        "}\n"
+        "\n"
+        "export function DashboardPanel(props: DashboardProps) {\n"
+        "  const state = useDashboardState();\n"
+        "  return <section>{props.title}:{String(state.ready)}</section>;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    backend = IndexCodeIntelBackend(workspace)
+    result = backend.run("document_symbols", file_path="dashboard.tsx")
+
+    assert result.ok is True
+    assert "DashboardPanel" in result.output
+    assert "useDashboardState" in result.output
+    assert "DashboardProps" in result.output
+
+
 def test_typescript_external_lsp_opens_related_files_for_cross_file_references(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

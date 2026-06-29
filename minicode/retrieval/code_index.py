@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import Iterable
 
 _TS_SYMBOL_RE = re.compile(
-    r"(?P<kind>export\s+class|class|export\s+function|function)\s+"
+    r"(?P<kind>"
+    r"export\s+class|class|"
+    r"export\s+function|function|"
+    r"export\s+interface|interface|"
+    r"export\s+type|type"
+    r")\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?P<tail>\([^)]*\))?",
     re.MULTILINE,
 )
@@ -170,7 +175,7 @@ class CodeIndex:
         for match in _TS_SYMBOL_RE.finditer(text):
             kind_text = match.group("kind")
             name = match.group("name")
-            kind = "class" if "class" in kind_text else "function"
+            kind = self._ts_symbol_kind(kind_text)
             start_line = text[: match.start()].count("\n") + 1
             end_line = self._find_block_end(lines, start_line)
             content = self._slice(lines, start_line, end_line)
@@ -297,6 +302,17 @@ class CodeIndex:
             if started and depth <= 0:
                 return index + 1
         return min(len(lines), start_line + 20)
+
+    @staticmethod
+    def _ts_symbol_kind(kind_text: str) -> str:
+        lowered = kind_text.lower()
+        if "class" in lowered:
+            return "class"
+        if "interface" in lowered:
+            return "interface"
+        if re.search(r"\btype\b", lowered):
+            return "type"
+        return "function"
 
     def _resolve_ts_import(self, current_path: str, value: str) -> str:
         assert self.workspace is not None
