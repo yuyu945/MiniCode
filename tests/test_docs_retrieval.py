@@ -1,3 +1,7 @@
+import shutil
+import uuid
+from pathlib import Path
+
 from minicode.retrieval.docs_types import (
     ChildChunk,
     DocumentRecord,
@@ -67,3 +71,28 @@ def test_docs_types_are_reexported_from_retrieval_package() -> None:
     assert ExportedDocumentRecord is DocumentRecord
     assert ExportedDocsRetrievalResult is DocsRetrievalResult
     assert ExportedParentChunk is ParentChunk
+
+
+def test_discover_documents_collects_readme_docs_and_agents() -> None:
+    from minicode.retrieval.docs_discovery import discover_documents
+
+    workspace = Path.cwd() / f"docs-discovery-{uuid.uuid4().hex}"
+    workspace.mkdir()
+    try:
+        (workspace / "README.md").write_text("# Root\n", encoding="utf-8")
+        (workspace / "docs").mkdir()
+        (workspace / "docs" / "design.md").write_text("# Design\n", encoding="utf-8")
+        (workspace / "nested").mkdir()
+        (workspace / "nested" / "AGENTS.md").write_text("# Rules\n", encoding="utf-8")
+
+        records = discover_documents(workspace)
+        paths = {record.path for record in records}
+        types = {record.doc_type for record in records}
+
+        assert "README.md" in paths
+        assert "docs/design.md" in paths
+        assert "nested/AGENTS.md" in paths
+        assert "readme" in types
+        assert "agents" in types
+    finally:
+        shutil.rmtree(workspace, ignore_errors=True)
