@@ -273,9 +273,9 @@ class MemoryPipeline:
                 "id": e.id,
                 "content": e.content,
                 "domain": getattr(e, 'domains', []),
-                "relevance": getattr(e, 'usage_count', 0),
+                "relevance": float(getattr(e, "usage_count", 0)) + 0.3,
                 "source": "memory_pipeline",
-                "partition": "historical_memory",
+                "partition": self._memory_partition(e),
             }
             for e in entries[:max_results]
         ]
@@ -287,15 +287,24 @@ class MemoryPipeline:
             max_results=max_results,
         )
         merged = list(docs_results)
-        seen_ids = {item["id"] for item in merged}
+        seen_keys = {(item["source"], item["id"]) for item in merged}
         for item in memory_results:
-            if item["id"] not in seen_ids:
-                seen_ids.add(item["id"])
+            key = (item["source"], item["id"])
+            if key not in seen_keys:
+                seen_keys.add(key)
                 merged.append(item)
         merged.sort(key=lambda item: item["relevance"], reverse=True)
         return merged[:max_results]
 
     # ── INJECT: Memory into prompt ──────────────────────────────────
+
+    def _memory_partition(self, entry: Any) -> str:
+        freshness = getattr(entry, "freshness", "")
+        if freshness == "stale" or getattr(entry, "conflicts_with", None):
+            return "stale_or_conflict_memory"
+        if getattr(entry, "usage_count", 0) > 5:
+            return "historical_memory"
+        return "recent_memory"
 
     def inject(
         self,

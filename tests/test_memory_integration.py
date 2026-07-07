@@ -205,20 +205,107 @@ class TestMemoryContextManagerIntegration:
     def test_memory_pipeline_returns_partitioned_docs_and_memory(self, tmp_path: Path):
         workspace = tmp_path / "repo"
         workspace.mkdir()
-        (workspace / "README.md").write_text("Project uses FastAPI and pytest", encoding="utf-8")
+        (workspace / "README.md").write_text(
+            "# MiniCode\n\n## Testing\n\nProject uses FastAPI and pytest.\n",
+            encoding="utf-8",
+        )
         manager = MemoryManager(project_root=workspace)
         manager.add_entry(MemoryScope.PROJECT, "testing", "Use pytest fixtures", ["pytest"])
 
         pipeline = MemoryPipeline(manager)
         pipeline.initialize(workspace_path=str(workspace), enable_reranker=False, enable_vector=False)
 
-        result = pipeline.read("how are tests organized", ["tests/test_api.py"])
+        result = pipeline.read("how is pytest used", ["tests/test_api.py"])
         sources = {item["source"] for item in result}
         partitions = {item["partition"] for item in result}
 
         assert "docs_pipeline" in sources
         assert "memory_pipeline" in sources
         assert "project_docs" in partitions
+
+    def test_memory_pipeline_returns_parent_expanded_docs_and_memory(self, tmp_path: Path):
+        workspace = tmp_path / "repo"
+        workspace.mkdir()
+        (workspace / "README.md").write_text(
+            "# MiniCode\n\n"
+            + ("Intro text.\n\n" * 40)
+            + "## Retrieval\n\n"
+            "Parent child retrieval keeps context stable.\n",
+            encoding="utf-8",
+        )
+        manager = MemoryManager(project_root=workspace)
+        manager.add_entry(
+            MemoryScope.PROJECT,
+            "testing",
+            "Retrieval testing keeps context stable with pytest fixtures",
+            ["retrieval", "testing", "pytest", "context"],
+        )
+
+        pipeline = MemoryPipeline(manager)
+        pipeline.initialize(workspace_path=str(workspace), enable_reranker=False, enable_vector=False)
+
+        result = pipeline.read("how does retrieval keep context stable", ["tests/test_docs.py"])
+        docs = [item for item in result if item["source"] == "docs_pipeline"]
+        memory = [item for item in result if item["source"] == "memory_pipeline"]
+
+        assert docs
+        assert memory
+        assert any("Parent child retrieval keeps context stable." in item["content"] for item in docs)
+
+    def test_memory_pipeline_merges_by_source_aware_key(self, tmp_path: Path):
+        workspace = tmp_path / "repo"
+        workspace.mkdir()
+        manager = MemoryManager(project_root=workspace)
+        entry = manager.add_entry(
+            MemoryScope.PROJECT,
+            "testing",
+            "Use pytest fixtures",
+            ["pytest"],
+        )
+
+        pipeline = MemoryPipeline(manager)
+        pipeline.initialize(workspace_path=str(workspace), enable_reranker=False, enable_vector=False)
+        pipeline._docs_memory_pipeline.retrieve = lambda *args, **kwargs: [  # type: ignore[method-assign]
+            {
+                "id": entry.id,
+                "content": "Docs content with colliding id",
+                "path": "README.md",
+                "domain": [],
+                "relevance": 0.9,
+                "source": "docs_pipeline",
+                "partition": "project_docs",
+            }
+        ]
+
+        result = pipeline.read("pytest fixtures", ["tests/test_api.py"])
+
+        docs = [item for item in result if item["source"] == "docs_pipeline" and item["id"] == entry.id]
+        memory = [item for item in result if item["source"] == "memory_pipeline" and item["id"] == entry.id]
+
+        assert len(docs) == 1
+        assert len(memory) == 1
+
+    def test_memory_pipeline_keeps_docs_visible_after_merge_truncation(self, tmp_path: Path):
+        workspace = tmp_path / "repo"
+        workspace.mkdir()
+        (workspace / "README.md").write_text(
+            "# MiniCode\n\n"
+            "## Retrieval\n\n"
+            "Pytest retrieval guidance lives in docs.\n",
+            encoding="utf-8",
+        )
+        manager = MemoryManager(project_root=workspace)
+        manager.add_entry(MemoryScope.PROJECT, "testing", "Use pytest fixtures", ["pytest"])
+        manager.add_entry(MemoryScope.PROJECT, "testing", "Pytest markers are supported", ["pytest"])
+        manager.add_entry(MemoryScope.PROJECT, "testing", "Pytest collection can be customized", ["pytest"])
+
+        pipeline = MemoryPipeline(manager)
+        pipeline.initialize(workspace_path=str(workspace), enable_reranker=False, enable_vector=False)
+
+        result = pipeline.read("pytest retrieval guidance", ["tests/test_api.py"], max_results=3)
+
+        assert len(result) == 3
+        assert any(item["source"] == "docs_pipeline" for item in result)
 
 
 # ---------------------------------------------------------------------------
