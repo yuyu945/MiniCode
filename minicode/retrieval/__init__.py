@@ -1,3 +1,9 @@
+from minicode.retrieval.docs_types import (
+    ChildChunk,
+    DocumentRecord,
+    DocsRetrievalResult,
+    ParentChunk,
+)
 from minicode.retrieval.types import (
     CodeEvidence,
     CodeRetrievalResult,
@@ -6,8 +12,12 @@ from minicode.retrieval.types import (
 )
 
 __all__ = [
+    "ChildChunk",
     "CodeEvidence",
     "CodeRetrievalResult",
+    "DocumentRecord",
+    "DocsRetrievalResult",
     "DependencyEdge",
+    "ParentChunk",
     "RetrievalIntent",
 ]
