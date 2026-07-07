@@ -23,11 +23,17 @@ class DocsRetrievalPipeline:
     ) -> DocsRetrievalResult:
         applied_filters = filters or {}
         allowed_doc_ids = self._allowed_doc_ids(applied_filters)
-        child_scores = self.index.sparse_search(
+        sparse_scores = self.index.sparse_search(
             query,
             top_k=max_results * 3,
             allowed_doc_ids=allowed_doc_ids,
         )
+        semantic_scores = self.index.semantic_search(
+            query,
+            top_k=max_results * 3,
+            allowed_doc_ids=allowed_doc_ids,
+        )
+        child_scores = self._rrf_merge(sparse_scores, semantic_scores)
         filtered_scores = self._apply_filters(child_scores, applied_filters)
         limited_scores = filtered_scores[:max_results]
 
@@ -35,9 +41,15 @@ class DocsRetrievalPipeline:
         expanded_parents = []
         seen_parent_ids: set[str] = set()
         ranking_signals: dict[str, dict[str, float]] = {}
+        lexical_by_child_id = {child.child_id: score for child, score in sparse_scores}
+        semantic_by_child_id = {child.child_id: score for child, score in semantic_scores}
 
-        for child, lexical_score in limited_scores:
-            ranking_signals[child.child_id] = {"lexical": lexical_score}
+        for child, fused_score in limited_scores:
+            ranking_signals[child.child_id] = {
+                "lexical": lexical_by_child_id.get(child.child_id, 0.0),
+                "semantic": semantic_by_child_id.get(child.child_id, 0.0),
+                "rrf": fused_score,
+            }
             if child.parent_id in seen_parent_ids:
                 continue
             parent = self.index.parent_by_id.get(child.parent_id)
@@ -53,6 +65,28 @@ class DocsRetrievalPipeline:
             applied_filters=applied_filters,
             ranking_signals=ranking_signals,
         )
+
+    def _rrf_merge(
+        self,
+        sparse_scores: list[tuple[ChildChunk, float]],
+        semantic_scores: list[tuple[ChildChunk, float]],
+    ) -> list[tuple[ChildChunk, float]]:
+        fused: dict[str, tuple[ChildChunk, float]] = {}
+
+        for rank, (child, _) in enumerate(sparse_scores, start=1):
+            fused[child.child_id] = (child, 1.0 / (60 + rank))
+
+        for rank, (child, _) in enumerate(semantic_scores, start=1):
+            score = 1.0 / (60 + rank)
+            existing = fused.get(child.child_id)
+            if existing is None:
+                fused[child.child_id] = (child, score)
+                continue
+            fused[child.child_id] = (child, existing[1] + score)
+
+        merged = list(fused.values())
+        merged.sort(key=lambda item: (-item[1], item[0].ordinal, item[0].child_id))
+        return merged
 
     def _apply_filters(
         self,

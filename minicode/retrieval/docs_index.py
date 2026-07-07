@@ -69,6 +69,29 @@ class DocsIndex:
         scored.sort(key=lambda item: (-item[1], item[0].ordinal, item[0].child_id))
         return scored[:top_k]
 
+    def semantic_search(
+        self,
+        query: str,
+        top_k: int = 10,
+        allowed_doc_ids: set[str] | None = None,
+    ) -> list[tuple[ChildChunk, float]]:
+        query_terms = _query_terms(query)
+        if not query_terms:
+            return []
+
+        scored: list[tuple[ChildChunk, float]] = []
+        for child in self.children:
+            if allowed_doc_ids is not None and child.doc_id not in allowed_doc_ids:
+                continue
+            overlap = query_terms.intersection(set(child.keywords))
+            if not overlap:
+                continue
+            score = float(0.5 + (0.2 * len(overlap)))
+            scored.append((child, score))
+
+        scored.sort(key=lambda item: (-item[1], item[0].ordinal, item[0].child_id))
+        return scored[:top_k]
+
 
 def _query_terms(text: str) -> set[str]:
     return {match.group(0).lower() for match in _TOKEN_RE.finditer(text)}

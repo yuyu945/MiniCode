@@ -156,3 +156,37 @@ def test_docs_pipeline_doc_type_filter_is_applied_before_candidate_truncation(
 
     assert result.expanded_parents
     assert [parent.path for parent in result.expanded_parents] == ["docs/architecture.md"]
+
+
+def test_docs_pipeline_doc_type_filter_preserves_hybrid_ranking_signals(
+    tmp_path: Path,
+) -> None:
+    from minicode.retrieval.docs_pipeline import DocsRetrievalPipeline
+
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "README.md").write_text(
+        "# MiniCode\n\n"
+        "## Setup\n\n"
+        "Use python for local setup.\n",
+        encoding="utf-8",
+    )
+    (workspace / "docs").mkdir()
+    (workspace / "docs" / "architecture.md").write_text(
+        "# Architecture\n\n"
+        "## Retrieval\n\n"
+        "Parent child chunks keep retrieval stable.\n",
+        encoding="utf-8",
+    )
+
+    pipeline = DocsRetrievalPipeline(workspace)
+    pipeline.build_index()
+    result = pipeline.retrieve(
+        "how do retrieval chunks stay stable",
+        max_results=5,
+        filters={"doc_type": ["design"]},
+    )
+
+    assert [parent.path for parent in result.expanded_parents] == ["docs/architecture.md"]
+    assert result.matched_children
+    assert result.ranking_signals[result.matched_children[0].child_id]["semantic"] > 0.0
