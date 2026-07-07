@@ -96,3 +96,63 @@ def test_discover_documents_collects_readme_docs_and_agents() -> None:
         assert "agents" in types
     finally:
         shutil.rmtree(workspace, ignore_errors=True)
+
+
+def test_docs_pipeline_returns_matching_parent_section_not_file_prefix(tmp_path: Path) -> None:
+    from minicode.retrieval.docs_pipeline import DocsRetrievalPipeline
+
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "README.md").write_text(
+        "# MiniCode\n\n"
+        "Intro text.\n\n"
+        "## Setup\n\n"
+        "Setup details.\n\n"
+        "## Retrieval\n\n"
+        "Parent child retrieval expands matching chunks to the full section.\n",
+        encoding="utf-8",
+    )
+
+    pipeline = DocsRetrievalPipeline(workspace)
+    pipeline.build_index()
+    result = pipeline.retrieve("how does parent child retrieval work", max_results=3)
+
+    assert result.expanded_parents
+    assert result.expanded_parents[0].heading == "Retrieval"
+    assert "Parent child retrieval" in result.expanded_parents[0].content
+
+
+def test_docs_pipeline_doc_type_filter_is_applied_before_candidate_truncation(
+    tmp_path: Path,
+) -> None:
+    from minicode.retrieval.docs_pipeline import DocsRetrievalPipeline
+
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+
+    for index in range(10):
+        (workspace / f"README-{index}.md").write_text(
+            "# Noise\n\n"
+            "## Retrieval\n\n"
+            "Parent child retrieval work details.\n",
+            encoding="utf-8",
+        )
+
+    (workspace / "docs").mkdir()
+    (workspace / "docs" / "architecture.md").write_text(
+        "# Architecture\n\n"
+        "## Retrieval\n\n"
+        "Parent child retrieval work details.\n",
+        encoding="utf-8",
+    )
+
+    pipeline = DocsRetrievalPipeline(workspace)
+    pipeline.build_index()
+    result = pipeline.retrieve(
+        "parent child retrieval work",
+        max_results=3,
+        filters={"doc_type": ["design"]},
+    )
+
+    assert result.expanded_parents
+    assert [parent.path for parent in result.expanded_parents] == ["docs/architecture.md"]
