@@ -190,3 +190,27 @@ def test_docs_pipeline_doc_type_filter_preserves_hybrid_ranking_signals(
     assert [parent.path for parent in result.expanded_parents] == ["docs/architecture.md"]
     assert result.matched_children
     assert result.ranking_signals[result.matched_children[0].child_id]["semantic"] > 0.0
+
+
+def test_docs_pipeline_retrieves_middle_section_not_just_prefix(tmp_path: Path) -> None:
+    from minicode.retrieval.docs_pipeline import DocsRetrievalPipeline
+
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "README.md").write_text(
+        "# MiniCode\n\n"
+        "## Setup\n\n"
+        "Setup details.\n\n"
+        "## Long Section\n\n"
+        + ("Noise paragraph.\n\n" * 20)
+        + "Parent child retrieval is discussed here.\n",
+        encoding="utf-8",
+    )
+
+    pipeline = DocsRetrievalPipeline(workspace)
+    pipeline.build_index()
+    result = pipeline.retrieve("where is parent child retrieval discussed", max_results=3)
+
+    assert result.expanded_parents
+    assert result.expanded_parents[0].heading == "Long Section"
+    assert all(parent.heading != "Setup" for parent in result.expanded_parents[:1])
